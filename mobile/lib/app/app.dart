@@ -6,6 +6,7 @@ import 'package:my_life/app/theme/app_theme.dart';
 import 'package:my_life/core/database/app_database_provider.dart';
 import 'package:my_life/core/localization/locale_controller.dart';
 import 'package:my_life/features/photo/application/photo_providers.dart';
+import 'package:my_life/app/device_import_sync.dart';
 
 class MyLifeApp extends ConsumerWidget {
   const MyLifeApp({super.key});
@@ -30,6 +31,8 @@ class MyLifeApp extends ConsumerWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       routerConfig: router,
+      builder: (context, child) =>
+          DeviceImportSync(child: child ?? const SizedBox.shrink()),
     );
   }
 }

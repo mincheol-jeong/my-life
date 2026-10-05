@@ -31,6 +31,13 @@ MY LIFE의 사용자 또는 개발자에게 의미 있는 변경을 기록합니
 - 명시적 권한 후 선택한 기기 일정을 Memo로 가져오는 Calendar Import
 - calendar occurrence 중복을 방지하는 `calendar_imports` table과 schema v5 migration
 - 선택한 사진의 EXIF 촬영시각·GPS 기반 Photo 날짜·장소 제안
+- Home의 오늘 날짜, 최근 기록 5개, 이번 달 총 지출, 최근 사진 기록 6개 대표 썸네일
+- Home section별 empty/loading/error·재시도, 타입별 detail 이동, 자정/앱 복귀 날짜 갱신
+- Home 월 경계·soft delete·실시간 변경·사진 join limit·화면 흐름 테스트
+- Android 선택 앱 결제 알림 수집과 iOS 단축어 URL 텍스트 handoff
+- Me 지출 가져오기, 미확인 초안 검토/버리기, 확인 후 Expense transaction 저장
+- Calendar opt-in 단방향 자동 반영, 원본 snapshot 기반 local 수정 보호
+- schema v6 payment mapping/source snapshot과 기존 DB 보존 migration
 
 ### Changed
 
@@ -44,6 +51,7 @@ MY LIFE의 사용자 또는 개발자에게 의미 있는 변경을 기록합니
 - Flutter project name을 `my_life`, Android/iOS 식별자를 `com.mincheol.mylife`로 확정
 - Photo Record의 개별 사진 삭제와 실제 앱 관리 파일 정리 정책을 확정
 - Calendar 연동을 원본 비수정·수동 실행·단방향 Memo 가져오기로 제한
+- Calendar 연동을 원본 비수정 상태로 유지하며 선택 기간의 foreground 자동 반영을 opt-in 확장
 
 ### Deprecated
 

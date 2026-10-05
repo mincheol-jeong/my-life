@@ -103,12 +103,19 @@ Repository
 
 ```text
 features/
+├── payment_import/
+│   ├── application/
+│   ├── data/
+│   ├── domain/
+│   └── presentation/
 ├── calendar_import/
 │   ├── application/
 │   ├── data/
 │   ├── domain/
 │   └── presentation/
 ├── home/
+│   ├── application/
+│   ├── data/
 │   └── presentation/
 ├── expense/
 │   ├── application/
@@ -169,7 +176,11 @@ Photo는 `PhotoRepository`가 `records`/`photos` transaction과 `PhotoStorage`�
 
 Timeline은 각 기능의 CRUD를 다시 구현하지 않습니다. `TimelineRepository`가 active `records`를 기준으로 `expenses`와 `photos`를 읽기 전용 join하고, local date/type filter와 정렬 결과를 Drift stream으로 제공합니다. Riverpod은 filter 상태와 stream을 화면에 연결합니다.
 
-Calendar Import는 사용자가 Me에서 실행하는 opt-in adapter입니다. `CalendarDeviceService`가 OS 권한과 calendar/event 읽기를 담당하고, `CalendarImportRepository`가 선택된 event를 Memo Record와 `calendar_imports` mapping으로 transaction 저장합니다. OS calendar에는 쓰지 않습니다.
+Home은 `HomeRepository`가 Timeline의 bounded read query를 재사용해 최근 Record 5개와 최근 Photo Record 6개를 제공합니다. limit은 photo join 전에 parent Record에 적용하여 한 Record의 사진을 누락하지 않습니다. 이번 달 지출은 active Expense Record의 local date 월 범위로 SQLite SUM 집계하며, 세 section을 독립적인 Riverpod stream으로 연결합니다. local date provider는 자정에 갱신하고 Home이 앱 복귀를 감지하면 재계산합니다. Home과 Timeline은 label fallback·KRW 표시·detail 경로를 공유합니다.
+
+Calendar Import는 사용자가 Me에서 실행하는 opt-in adapter입니다. `CalendarDeviceService`가 OS 권한과 calendar/event 읽기를 담당하고, `CalendarImportRepository`가 선택된 event를 Memo Record와 `calendar_imports` mapping으로 transaction 저장합니다. OS calendar에는 쓰지 않습니다. `CalendarSyncController`는 opt-in 선택/고정 기간을 preferences에 보존하고 앱 실행·복귀/foreground 5분 주기로 원본 추가·수정·삭제를 반영합니다. snapshot 비교로 local 수정 Memo를 보호하며 OS 읽기 실패 시 reconciliation하지 않습니다.
+
+Payment Import는 `features/payment_import/`의 domain parser, data Repository/native adapter, Riverpod controller와 확인 화면으로 구성합니다. Android NotificationListenerService는 선택한 앱의 결제 후보만 private handoff queue에 저장합니다. iOS SceneDelegate는 opt-in 상태에서 Shortcuts URL의 텍스트를 같은 역할의 queue에 받습니다. Flutter MethodChannel로 읽고 Drift ingest 후 acknowledge합니다. `DeviceImportSync`가 실행/복귀/foreground 15초 주기로 handoff를 수집합니다. 사용자 확인 후에만 Expense 저장과 mapping 갱신을 transaction으로 처리합니다. 새로운 package나 backend는 추가하지 않습니다.
 
 Photo metadata는 사용자가 선택한 첫 파일만 `PhotoMetadataReader`가 분석합니다. EXIF 촬영시각과 GPS를 작성 초기값으로 제안하고, GPS reverse geocoding 실패는 좌표 fallback으로 처리합니다. 분석 실패는 Photo 저장을 막지 않습니다.
 

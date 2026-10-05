@@ -3,6 +3,7 @@ import 'package:my_life/core/database/app_database_provider.dart';
 import 'package:my_life/features/calendar_import/data/calendar_device_service.dart';
 import 'package:my_life/features/calendar_import/data/calendar_import_repository.dart';
 import 'package:my_life/features/calendar_import/domain/calendar_import_models.dart';
+import 'package:my_life/features/calendar_import/application/calendar_sync_controller.dart';
 
 class CalendarImportState {
   const CalendarImportState({
@@ -63,10 +64,12 @@ class CalendarImportController extends AsyncNotifier<CalendarImportState> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final access = await ref.read(calendarDeviceServiceProvider).checkAccess();
+    final saved = await ref.read(calendarSyncControllerProvider.future);
     final initial = CalendarImportState(
       access: access,
-      startDate: today.subtract(const Duration(days: 30)),
-      endDate: today.add(const Duration(days: 90)),
+      startDate: saved?.start ?? today.subtract(const Duration(days: 30)),
+      endDate: saved?.end ?? today.add(const Duration(days: 90)),
+      selectedCalendarIds: saved?.ids ?? const {},
     );
     if (access != CalendarAccessState.granted) return initial;
     return _withCalendars(initial);
@@ -135,7 +138,11 @@ class CalendarImportController extends AsyncNotifier<CalendarImportState> {
         .read(calendarDeviceServiceProvider)
         .listCalendars();
     final selected = calendars
-        .where((calendar) => calendar.isPrimary)
+        .where(
+          (calendar) => current.selectedCalendarIds.isNotEmpty
+              ? current.selectedCalendarIds.contains(calendar.id)
+              : calendar.isPrimary,
+        )
         .map((calendar) => calendar.id)
         .toSet();
     return current.copyWith(

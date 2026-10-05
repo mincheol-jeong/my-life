@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:my_life/core/localization/app_strings.dart';
 import 'package:my_life/features/calendar_import/application/calendar_import_providers.dart';
 import 'package:my_life/features/calendar_import/domain/calendar_import_models.dart';
+import 'package:my_life/features/calendar_import/application/calendar_sync_controller.dart';
 
 class CalendarImportScreen extends ConsumerWidget {
   const CalendarImportScreen({super.key});
@@ -42,6 +43,8 @@ class _Content extends ConsumerWidget {
       return _PermissionState(access: state.access);
     }
     final strings = context.strings;
+    final sync = ref.watch(calendarSyncControllerProvider);
+    final syncResult = ref.watch(calendarSyncResultProvider);
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
       children: [
@@ -52,6 +55,70 @@ class _Content extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 24),
+        SwitchListTile(
+          key: const Key('calendar-auto-sync'),
+          contentPadding: EdgeInsets.zero,
+          title: Text(strings.get('calendarAutoSync')),
+          subtitle: Text(strings.get('calendarAutoSyncHint')),
+          value: sync.value != null,
+          onChanged:
+              sync.isLoading ||
+                  (sync.value == null && state.selectedCalendarIds.isEmpty)
+              ? null
+              : (enabled) async {
+                  await ref
+                      .read(calendarSyncControllerProvider.notifier)
+                      .configure(
+                        enabled
+                            ? CalendarSyncSettings(
+                                ids: state.selectedCalendarIds,
+                                start: state.startDate,
+                                end: state.endDate,
+                              )
+                            : null,
+                      );
+                },
+        ),
+        if (sync.value != null) ...[
+          Text(
+            strings.get(
+              'calendarSyncRange',
+              values: {
+                'start': _date(sync.value!.start),
+                'end': _date(sync.value!.end),
+              },
+            ),
+          ),
+          TextButton(
+            onPressed: state.selectedCalendarIds.isEmpty
+                ? null
+                : () => ref
+                      .read(calendarSyncControllerProvider.notifier)
+                      .configure(
+                        CalendarSyncSettings(
+                          ids: state.selectedCalendarIds,
+                          start: state.startDate,
+                          end: state.endDate,
+                        ),
+                      ),
+            child: Text(strings.get('calendarSyncApply')),
+          ),
+        ],
+        if (syncResult.isLoading) const LinearProgressIndicator(),
+        if (syncResult.hasError) Text(strings.get('calendarImportError')),
+        if (syncResult.value != null)
+          Text(
+            strings.get(
+              'calendarSyncResult',
+              values: {
+                'imported': syncResult.value!.imported,
+                'updated': syncResult.value!.updated,
+                'removed': syncResult.value!.removed,
+                'protected': syncResult.value!.protected,
+              },
+            ),
+          ),
+        const SizedBox(height: 16),
         Text(
           strings.get('importPeriod'),
           style: Theme.of(context).textTheme.titleMedium
@@ -178,6 +245,13 @@ class _PermissionState extends ConsumerWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
+            if (ref.watch(calendarSyncControllerProvider).value != null)
+              TextButton(
+                onPressed: () => ref
+                    .read(calendarSyncControllerProvider.notifier)
+                    .configure(null),
+                child: Text(context.strings.get('calendarSyncDisable')),
+              ),
             if (!restricted)
               FilledButton(
                 key: const Key('request-calendar-permission'),

@@ -185,7 +185,7 @@ Status: `DONE`
 
 ## 8. Phase 6 — Home
 
-Status: `NEXT`
+Status: `DONE`
 
 Tasks:
 
@@ -202,9 +202,28 @@ Completion:
 - Record, Expense, Photo 변경이 Home에 반영됩니다.
 - Event Today와 Travel card가 존재하지 않습니다.
 
+Current verification:
+
+- 오늘 local date와 자정/앱 복귀 갱신 구현
+- Timeline과 같은 정렬의 최근 Record 5개, 최근 Photo Record 6개 대표 썸네일과 detail 이동 구현
+- active Expense의 local date 기준 월별 SUM과 create/update/delete 실시간 반영 검증
+- 월초/월말·연말·윤년·soft delete와 사진 join 전 parent limit 검증
+- 각 section의 empty/loading/error·재시도와 한국어/English 화면 흐름 검증
+- Format, analyze, 전체 51 tests 통과
+- Android debug APK build와 iOS simulator build 통과
+
+## 8.1 Approved Device Connections
+
+- Android 알림 접근 + 선택 앱 source의 지출 초안 수집
+- iOS opt-in 단축어 URL 텍스트 수신; 실제 카드 알림/자동화 호환성은 device verification 필요
+- 원문 확인 후 기존 Expense form 저장, 처리 transaction과 동일 source/external ID 중복 방지
+- Calendar opt-in 단방향 자동 반영; launch/resume/foreground 5분 주기, 고정 기간과 local 수정 보호
+- schema v6 migration과 권한 철회/OS 읽기 실패 시 데이터 보존
+- Format, analyze, 전체 79 tests와 Android debug/iOS simulator build 통과
+
 ## 9. Phase 7 — Finance
 
-Status: `TODO`
+Status: `NEXT`
 
 Tasks:
 

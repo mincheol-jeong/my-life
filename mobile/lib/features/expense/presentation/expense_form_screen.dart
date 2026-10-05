@@ -6,16 +6,32 @@ import 'package:my_life/core/localization/app_strings.dart';
 import 'package:my_life/features/expense/application/expense_providers.dart';
 import 'package:my_life/features/expense/domain/expense_record.dart';
 import 'package:my_life/features/record/domain/local_date.dart';
+import 'package:my_life/features/payment_import/application/payment_import_providers.dart';
 
 class ExpenseFormScreen extends ConsumerWidget {
-  const ExpenseFormScreen({this.recordId, super.key});
+  const ExpenseFormScreen({
+    this.recordId,
+    this.initialDraft,
+    this.paymentImportId,
+    this.importText,
+    super.key,
+  });
 
   final String? recordId;
+  final ExpenseDraft? initialDraft;
+  final String? paymentImportId;
+  final String? importText;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final id = recordId;
-    if (id == null) return const _ExpenseEditor();
+    if (id == null) {
+      return _ExpenseEditor(
+        initialDraft: initialDraft,
+        paymentImportId: paymentImportId,
+        importText: importText,
+      );
+    }
 
     return ref
         .watch(expenseDetailProvider(id))
@@ -34,9 +50,18 @@ class ExpenseFormScreen extends ConsumerWidget {
 }
 
 class _ExpenseEditor extends ConsumerStatefulWidget {
-  const _ExpenseEditor({this.expense, super.key});
+  const _ExpenseEditor({
+    this.expense,
+    this.initialDraft,
+    this.paymentImportId,
+    this.importText,
+    super.key,
+  });
 
   final ExpenseRecord? expense;
+  final ExpenseDraft? initialDraft;
+  final String? paymentImportId;
+  final String? importText;
 
   @override
   ConsumerState<_ExpenseEditor> createState() => _ExpenseEditorState();
@@ -58,15 +83,25 @@ class _ExpenseEditorState extends ConsumerState<_ExpenseEditor> {
   void initState() {
     super.initState();
     final expense = widget.expense;
+    final initial = widget.initialDraft;
     _amountController = TextEditingController(
-      text: expense?.amount.toString() ?? '',
+      text: (expense?.amount ?? initial?.amount)?.toString() ?? '',
     );
-    _memoController = TextEditingController(text: expense?.memo);
-    _titleController = TextEditingController(text: expense?.record.title);
-    _category = expense?.category ?? ExpenseCategory.food;
-    _paymentMethod = expense?.paymentMethod ?? PaymentMethod.card;
-    _date = expense?.record.eventDate ?? LocalDate.fromDateTime(DateTime.now());
-    _timeMinutes = expense?.record.eventTimeMinutes;
+    _memoController = TextEditingController(
+      text: expense?.memo ?? initial?.memo,
+    );
+    _titleController = TextEditingController(
+      text: expense?.record.title ?? initial?.title,
+    );
+    _category = expense?.category ?? initial?.category ?? ExpenseCategory.food;
+    _paymentMethod =
+        expense?.paymentMethod ?? initial?.paymentMethod ?? PaymentMethod.card;
+    _date =
+        expense?.record.eventDate ??
+        initial?.eventDate ??
+        LocalDate.fromDateTime(DateTime.now());
+    _timeMinutes =
+        expense?.record.eventTimeMinutes ?? initial?.eventTimeMinutes;
   }
 
   @override
@@ -79,7 +114,10 @@ class _ExpenseEditorState extends ConsumerState<_ExpenseEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final isSaving = ref.watch(expenseControllerProvider).isLoading;
+    final isSaving =
+        ref.watch(expenseControllerProvider).isLoading ||
+        (widget.paymentImportId != null &&
+            ref.watch(paymentImportControllerProvider).isLoading);
     return Scaffold(
       appBar: AppBar(
         leading: BackButton(
@@ -94,6 +132,12 @@ class _ExpenseEditorState extends ConsumerState<_ExpenseEditor> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
           children: [
+            if (widget.importText != null) ...[
+              Text(context.strings.get('paymentReviewHint')),
+              const SizedBox(height: 8),
+              SelectableText(widget.importText!),
+              const SizedBox(height: 16),
+            ],
             TextField(
               key: const Key('expense-amount-field'),
               controller: _amountController,
@@ -266,6 +310,10 @@ class _ExpenseEditorState extends ConsumerState<_ExpenseEditor> {
     final controller = ref.read(expenseControllerProvider.notifier);
     final expense = _isEditing
         ? await controller.saveEdit(widget.expense!.record.id, draft)
+        : widget.paymentImportId != null
+        ? await ref
+              .read(paymentImportControllerProvider.notifier)
+              .save(widget.paymentImportId!, draft)
         : await controller.create(draft);
     if (!mounted) return;
 
@@ -273,7 +321,9 @@ class _ExpenseEditorState extends ConsumerState<_ExpenseEditor> {
       context.go('/expenses/${expense.record.id}');
       return;
     }
-    final error = ref.read(expenseControllerProvider).error;
+    final error = widget.paymentImportId != null
+        ? ref.read(paymentImportControllerProvider).error
+        : ref.read(expenseControllerProvider).error;
     if (error is ExpenseValidationException) {
       setState(
         () => _validationMessage = context.strings.get('amountRequired'),

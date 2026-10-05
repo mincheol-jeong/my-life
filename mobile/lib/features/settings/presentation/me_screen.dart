@@ -71,6 +71,15 @@ class MeScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => context.push('/calendar-import'),
           ),
+          ListTile(
+            key: const Key('payment-import-entry'),
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.receipt_long_outlined),
+            title: Text(context.strings.get('paymentImport')),
+            subtitle: Text(context.strings.get('paymentImportHint')),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => context.push('/payment-import'),
+          ),
         ],
       ),
     );

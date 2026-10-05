@@ -37,8 +37,17 @@ class CalendarEventImportDraft {
 }
 
 class CalendarImportResult {
-  const CalendarImportResult({required this.imported, required this.skipped});
+  const CalendarImportResult({
+    required this.imported,
+    required this.skipped,
+    this.updated = 0,
+    this.removed = 0,
+    this.protected = 0,
+  });
 
   final int imported;
   final int skipped;
+  final int updated;
+  final int removed;
+  final int protected;
 }

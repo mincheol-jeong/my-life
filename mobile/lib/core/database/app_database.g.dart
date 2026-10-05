@@ -1569,12 +1569,24 @@ class $CalendarImportsTable extends CalendarImports
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _sourceSnapshotMeta = const VerificationMeta(
+    'sourceSnapshot',
+  );
+  @override
+  late final GeneratedColumn<String> sourceSnapshot = GeneratedColumn<String>(
+    'source_snapshot',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     recordId,
     calendarId,
     externalInstanceId,
     importedAt,
+    sourceSnapshot,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1623,6 +1635,15 @@ class $CalendarImportsTable extends CalendarImports
     } else if (isInserting) {
       context.missing(_importedAtMeta);
     }
+    if (data.containsKey('source_snapshot')) {
+      context.handle(
+        _sourceSnapshotMeta,
+        sourceSnapshot.isAcceptableOrUnknown(
+          data['source_snapshot']!,
+          _sourceSnapshotMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1652,6 +1673,10 @@ class $CalendarImportsTable extends CalendarImports
         DriftSqlType.int,
         data['${effectivePrefix}imported_at'],
       )!,
+      sourceSnapshot: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_snapshot'],
+      ),
     );
   }
 
@@ -1667,11 +1692,13 @@ class CalendarImportRow extends DataClass
   final String calendarId;
   final String externalInstanceId;
   final int importedAt;
+  final String? sourceSnapshot;
   const CalendarImportRow({
     required this.recordId,
     required this.calendarId,
     required this.externalInstanceId,
     required this.importedAt,
+    this.sourceSnapshot,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1680,6 +1707,9 @@ class CalendarImportRow extends DataClass
     map['calendar_id'] = Variable<String>(calendarId);
     map['external_instance_id'] = Variable<String>(externalInstanceId);
     map['imported_at'] = Variable<int>(importedAt);
+    if (!nullToAbsent || sourceSnapshot != null) {
+      map['source_snapshot'] = Variable<String>(sourceSnapshot);
+    }
     return map;
   }
 
@@ -1689,6 +1719,9 @@ class CalendarImportRow extends DataClass
       calendarId: Value(calendarId),
       externalInstanceId: Value(externalInstanceId),
       importedAt: Value(importedAt),
+      sourceSnapshot: sourceSnapshot == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceSnapshot),
     );
   }
 
@@ -1704,6 +1737,7 @@ class CalendarImportRow extends DataClass
         json['externalInstanceId'],
       ),
       importedAt: serializer.fromJson<int>(json['importedAt']),
+      sourceSnapshot: serializer.fromJson<String?>(json['sourceSnapshot']),
     );
   }
   @override
@@ -1714,6 +1748,7 @@ class CalendarImportRow extends DataClass
       'calendarId': serializer.toJson<String>(calendarId),
       'externalInstanceId': serializer.toJson<String>(externalInstanceId),
       'importedAt': serializer.toJson<int>(importedAt),
+      'sourceSnapshot': serializer.toJson<String?>(sourceSnapshot),
     };
   }
 
@@ -1722,11 +1757,15 @@ class CalendarImportRow extends DataClass
     String? calendarId,
     String? externalInstanceId,
     int? importedAt,
+    Value<String?> sourceSnapshot = const Value.absent(),
   }) => CalendarImportRow(
     recordId: recordId ?? this.recordId,
     calendarId: calendarId ?? this.calendarId,
     externalInstanceId: externalInstanceId ?? this.externalInstanceId,
     importedAt: importedAt ?? this.importedAt,
+    sourceSnapshot: sourceSnapshot.present
+        ? sourceSnapshot.value
+        : this.sourceSnapshot,
   );
   CalendarImportRow copyWithCompanion(CalendarImportsCompanion data) {
     return CalendarImportRow(
@@ -1740,6 +1779,9 @@ class CalendarImportRow extends DataClass
       importedAt: data.importedAt.present
           ? data.importedAt.value
           : this.importedAt,
+      sourceSnapshot: data.sourceSnapshot.present
+          ? data.sourceSnapshot.value
+          : this.sourceSnapshot,
     );
   }
 
@@ -1749,14 +1791,20 @@ class CalendarImportRow extends DataClass
           ..write('recordId: $recordId, ')
           ..write('calendarId: $calendarId, ')
           ..write('externalInstanceId: $externalInstanceId, ')
-          ..write('importedAt: $importedAt')
+          ..write('importedAt: $importedAt, ')
+          ..write('sourceSnapshot: $sourceSnapshot')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(recordId, calendarId, externalInstanceId, importedAt);
+  int get hashCode => Object.hash(
+    recordId,
+    calendarId,
+    externalInstanceId,
+    importedAt,
+    sourceSnapshot,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1764,7 +1812,8 @@ class CalendarImportRow extends DataClass
           other.recordId == this.recordId &&
           other.calendarId == this.calendarId &&
           other.externalInstanceId == this.externalInstanceId &&
-          other.importedAt == this.importedAt);
+          other.importedAt == this.importedAt &&
+          other.sourceSnapshot == this.sourceSnapshot);
 }
 
 class CalendarImportsCompanion extends UpdateCompanion<CalendarImportRow> {
@@ -1772,12 +1821,14 @@ class CalendarImportsCompanion extends UpdateCompanion<CalendarImportRow> {
   final Value<String> calendarId;
   final Value<String> externalInstanceId;
   final Value<int> importedAt;
+  final Value<String?> sourceSnapshot;
   final Value<int> rowid;
   const CalendarImportsCompanion({
     this.recordId = const Value.absent(),
     this.calendarId = const Value.absent(),
     this.externalInstanceId = const Value.absent(),
     this.importedAt = const Value.absent(),
+    this.sourceSnapshot = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CalendarImportsCompanion.insert({
@@ -1785,6 +1836,7 @@ class CalendarImportsCompanion extends UpdateCompanion<CalendarImportRow> {
     required String calendarId,
     required String externalInstanceId,
     required int importedAt,
+    this.sourceSnapshot = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : recordId = Value(recordId),
        calendarId = Value(calendarId),
@@ -1795,6 +1847,7 @@ class CalendarImportsCompanion extends UpdateCompanion<CalendarImportRow> {
     Expression<String>? calendarId,
     Expression<String>? externalInstanceId,
     Expression<int>? importedAt,
+    Expression<String>? sourceSnapshot,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1803,6 +1856,7 @@ class CalendarImportsCompanion extends UpdateCompanion<CalendarImportRow> {
       if (externalInstanceId != null)
         'external_instance_id': externalInstanceId,
       if (importedAt != null) 'imported_at': importedAt,
+      if (sourceSnapshot != null) 'source_snapshot': sourceSnapshot,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1812,6 +1866,7 @@ class CalendarImportsCompanion extends UpdateCompanion<CalendarImportRow> {
     Value<String>? calendarId,
     Value<String>? externalInstanceId,
     Value<int>? importedAt,
+    Value<String?>? sourceSnapshot,
     Value<int>? rowid,
   }) {
     return CalendarImportsCompanion(
@@ -1819,6 +1874,7 @@ class CalendarImportsCompanion extends UpdateCompanion<CalendarImportRow> {
       calendarId: calendarId ?? this.calendarId,
       externalInstanceId: externalInstanceId ?? this.externalInstanceId,
       importedAt: importedAt ?? this.importedAt,
+      sourceSnapshot: sourceSnapshot ?? this.sourceSnapshot,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1838,6 +1894,9 @@ class CalendarImportsCompanion extends UpdateCompanion<CalendarImportRow> {
     if (importedAt.present) {
       map['imported_at'] = Variable<int>(importedAt.value);
     }
+    if (sourceSnapshot.present) {
+      map['source_snapshot'] = Variable<String>(sourceSnapshot.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1851,6 +1910,488 @@ class CalendarImportsCompanion extends UpdateCompanion<CalendarImportRow> {
           ..write('calendarId: $calendarId, ')
           ..write('externalInstanceId: $externalInstanceId, ')
           ..write('importedAt: $importedAt, ')
+          ..write('sourceSnapshot: $sourceSnapshot, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PaymentImportsTable extends PaymentImports
+    with TableInfo<$PaymentImportsTable, PaymentImportRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PaymentImportsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceMeta = const VerificationMeta('source');
+  @override
+  late final GeneratedColumn<String> source = GeneratedColumn<String>(
+    'source',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _externalIdMeta = const VerificationMeta(
+    'externalId',
+  );
+  @override
+  late final GeneratedColumn<String> externalId = GeneratedColumn<String>(
+    'external_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _rawTextMeta = const VerificationMeta(
+    'rawText',
+  );
+  @override
+  late final GeneratedColumn<String> rawText = GeneratedColumn<String>(
+    'raw_text',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _receivedAtMeta = const VerificationMeta(
+    'receivedAt',
+  );
+  @override
+  late final GeneratedColumn<int> receivedAt = GeneratedColumn<int>(
+    'received_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _recordIdMeta = const VerificationMeta(
+    'recordId',
+  );
+  @override
+  late final GeneratedColumn<String> recordId = GeneratedColumn<String>(
+    'record_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES records (id)',
+    ),
+  );
+  static const VerificationMeta _dismissedAtMeta = const VerificationMeta(
+    'dismissedAt',
+  );
+  @override
+  late final GeneratedColumn<int> dismissedAt = GeneratedColumn<int>(
+    'dismissed_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    source,
+    externalId,
+    rawText,
+    receivedAt,
+    recordId,
+    dismissedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'payment_imports';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PaymentImportRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('source')) {
+      context.handle(
+        _sourceMeta,
+        source.isAcceptableOrUnknown(data['source']!, _sourceMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceMeta);
+    }
+    if (data.containsKey('external_id')) {
+      context.handle(
+        _externalIdMeta,
+        externalId.isAcceptableOrUnknown(data['external_id']!, _externalIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_externalIdMeta);
+    }
+    if (data.containsKey('raw_text')) {
+      context.handle(
+        _rawTextMeta,
+        rawText.isAcceptableOrUnknown(data['raw_text']!, _rawTextMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_rawTextMeta);
+    }
+    if (data.containsKey('received_at')) {
+      context.handle(
+        _receivedAtMeta,
+        receivedAt.isAcceptableOrUnknown(data['received_at']!, _receivedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_receivedAtMeta);
+    }
+    if (data.containsKey('record_id')) {
+      context.handle(
+        _recordIdMeta,
+        recordId.isAcceptableOrUnknown(data['record_id']!, _recordIdMeta),
+      );
+    }
+    if (data.containsKey('dismissed_at')) {
+      context.handle(
+        _dismissedAtMeta,
+        dismissedAt.isAcceptableOrUnknown(
+          data['dismissed_at']!,
+          _dismissedAtMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {source, externalId},
+  ];
+  @override
+  PaymentImportRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PaymentImportRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      source: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source'],
+      )!,
+      externalId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}external_id'],
+      )!,
+      rawText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}raw_text'],
+      )!,
+      receivedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}received_at'],
+      )!,
+      recordId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}record_id'],
+      ),
+      dismissedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}dismissed_at'],
+      ),
+    );
+  }
+
+  @override
+  $PaymentImportsTable createAlias(String alias) {
+    return $PaymentImportsTable(attachedDatabase, alias);
+  }
+}
+
+class PaymentImportRow extends DataClass
+    implements Insertable<PaymentImportRow> {
+  final String id;
+  final String source;
+  final String externalId;
+  final String rawText;
+  final int receivedAt;
+  final String? recordId;
+  final int? dismissedAt;
+  const PaymentImportRow({
+    required this.id,
+    required this.source,
+    required this.externalId,
+    required this.rawText,
+    required this.receivedAt,
+    this.recordId,
+    this.dismissedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['source'] = Variable<String>(source);
+    map['external_id'] = Variable<String>(externalId);
+    map['raw_text'] = Variable<String>(rawText);
+    map['received_at'] = Variable<int>(receivedAt);
+    if (!nullToAbsent || recordId != null) {
+      map['record_id'] = Variable<String>(recordId);
+    }
+    if (!nullToAbsent || dismissedAt != null) {
+      map['dismissed_at'] = Variable<int>(dismissedAt);
+    }
+    return map;
+  }
+
+  PaymentImportsCompanion toCompanion(bool nullToAbsent) {
+    return PaymentImportsCompanion(
+      id: Value(id),
+      source: Value(source),
+      externalId: Value(externalId),
+      rawText: Value(rawText),
+      receivedAt: Value(receivedAt),
+      recordId: recordId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(recordId),
+      dismissedAt: dismissedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dismissedAt),
+    );
+  }
+
+  factory PaymentImportRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PaymentImportRow(
+      id: serializer.fromJson<String>(json['id']),
+      source: serializer.fromJson<String>(json['source']),
+      externalId: serializer.fromJson<String>(json['externalId']),
+      rawText: serializer.fromJson<String>(json['rawText']),
+      receivedAt: serializer.fromJson<int>(json['receivedAt']),
+      recordId: serializer.fromJson<String?>(json['recordId']),
+      dismissedAt: serializer.fromJson<int?>(json['dismissedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'source': serializer.toJson<String>(source),
+      'externalId': serializer.toJson<String>(externalId),
+      'rawText': serializer.toJson<String>(rawText),
+      'receivedAt': serializer.toJson<int>(receivedAt),
+      'recordId': serializer.toJson<String?>(recordId),
+      'dismissedAt': serializer.toJson<int?>(dismissedAt),
+    };
+  }
+
+  PaymentImportRow copyWith({
+    String? id,
+    String? source,
+    String? externalId,
+    String? rawText,
+    int? receivedAt,
+    Value<String?> recordId = const Value.absent(),
+    Value<int?> dismissedAt = const Value.absent(),
+  }) => PaymentImportRow(
+    id: id ?? this.id,
+    source: source ?? this.source,
+    externalId: externalId ?? this.externalId,
+    rawText: rawText ?? this.rawText,
+    receivedAt: receivedAt ?? this.receivedAt,
+    recordId: recordId.present ? recordId.value : this.recordId,
+    dismissedAt: dismissedAt.present ? dismissedAt.value : this.dismissedAt,
+  );
+  PaymentImportRow copyWithCompanion(PaymentImportsCompanion data) {
+    return PaymentImportRow(
+      id: data.id.present ? data.id.value : this.id,
+      source: data.source.present ? data.source.value : this.source,
+      externalId: data.externalId.present
+          ? data.externalId.value
+          : this.externalId,
+      rawText: data.rawText.present ? data.rawText.value : this.rawText,
+      receivedAt: data.receivedAt.present
+          ? data.receivedAt.value
+          : this.receivedAt,
+      recordId: data.recordId.present ? data.recordId.value : this.recordId,
+      dismissedAt: data.dismissedAt.present
+          ? data.dismissedAt.value
+          : this.dismissedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PaymentImportRow(')
+          ..write('id: $id, ')
+          ..write('source: $source, ')
+          ..write('externalId: $externalId, ')
+          ..write('rawText: $rawText, ')
+          ..write('receivedAt: $receivedAt, ')
+          ..write('recordId: $recordId, ')
+          ..write('dismissedAt: $dismissedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    source,
+    externalId,
+    rawText,
+    receivedAt,
+    recordId,
+    dismissedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PaymentImportRow &&
+          other.id == this.id &&
+          other.source == this.source &&
+          other.externalId == this.externalId &&
+          other.rawText == this.rawText &&
+          other.receivedAt == this.receivedAt &&
+          other.recordId == this.recordId &&
+          other.dismissedAt == this.dismissedAt);
+}
+
+class PaymentImportsCompanion extends UpdateCompanion<PaymentImportRow> {
+  final Value<String> id;
+  final Value<String> source;
+  final Value<String> externalId;
+  final Value<String> rawText;
+  final Value<int> receivedAt;
+  final Value<String?> recordId;
+  final Value<int?> dismissedAt;
+  final Value<int> rowid;
+  const PaymentImportsCompanion({
+    this.id = const Value.absent(),
+    this.source = const Value.absent(),
+    this.externalId = const Value.absent(),
+    this.rawText = const Value.absent(),
+    this.receivedAt = const Value.absent(),
+    this.recordId = const Value.absent(),
+    this.dismissedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PaymentImportsCompanion.insert({
+    required String id,
+    required String source,
+    required String externalId,
+    required String rawText,
+    required int receivedAt,
+    this.recordId = const Value.absent(),
+    this.dismissedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       source = Value(source),
+       externalId = Value(externalId),
+       rawText = Value(rawText),
+       receivedAt = Value(receivedAt);
+  static Insertable<PaymentImportRow> custom({
+    Expression<String>? id,
+    Expression<String>? source,
+    Expression<String>? externalId,
+    Expression<String>? rawText,
+    Expression<int>? receivedAt,
+    Expression<String>? recordId,
+    Expression<int>? dismissedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (source != null) 'source': source,
+      if (externalId != null) 'external_id': externalId,
+      if (rawText != null) 'raw_text': rawText,
+      if (receivedAt != null) 'received_at': receivedAt,
+      if (recordId != null) 'record_id': recordId,
+      if (dismissedAt != null) 'dismissed_at': dismissedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PaymentImportsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? source,
+    Value<String>? externalId,
+    Value<String>? rawText,
+    Value<int>? receivedAt,
+    Value<String?>? recordId,
+    Value<int?>? dismissedAt,
+    Value<int>? rowid,
+  }) {
+    return PaymentImportsCompanion(
+      id: id ?? this.id,
+      source: source ?? this.source,
+      externalId: externalId ?? this.externalId,
+      rawText: rawText ?? this.rawText,
+      receivedAt: receivedAt ?? this.receivedAt,
+      recordId: recordId ?? this.recordId,
+      dismissedAt: dismissedAt ?? this.dismissedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (source.present) {
+      map['source'] = Variable<String>(source.value);
+    }
+    if (externalId.present) {
+      map['external_id'] = Variable<String>(externalId.value);
+    }
+    if (rawText.present) {
+      map['raw_text'] = Variable<String>(rawText.value);
+    }
+    if (receivedAt.present) {
+      map['received_at'] = Variable<int>(receivedAt.value);
+    }
+    if (recordId.present) {
+      map['record_id'] = Variable<String>(recordId.value);
+    }
+    if (dismissedAt.present) {
+      map['dismissed_at'] = Variable<int>(dismissedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PaymentImportsCompanion(')
+          ..write('id: $id, ')
+          ..write('source: $source, ')
+          ..write('externalId: $externalId, ')
+          ..write('rawText: $rawText, ')
+          ..write('receivedAt: $receivedAt, ')
+          ..write('recordId: $recordId, ')
+          ..write('dismissedAt: $dismissedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1865,6 +2406,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CalendarImportsTable calendarImports = $CalendarImportsTable(
     this,
   );
+  late final $PaymentImportsTable paymentImports = $PaymentImportsTable(this);
   late final Index recordsActiveTimelineIdx = Index(
     'records_active_timeline_idx',
     'CREATE INDEX records_active_timeline_idx ON records (event_date DESC, event_time_minutes DESC, created_at DESC) WHERE deleted_at IS NULL',
@@ -1886,6 +2428,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     expenses,
     photos,
     calendarImports,
+    paymentImports,
     recordsActiveTimelineIdx,
     recordsActiveTypeIdx,
     expensesCategoryIdx,

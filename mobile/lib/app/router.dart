@@ -15,6 +15,7 @@ import 'package:my_life/features/record/presentation/memo_form_screen.dart';
 import 'package:my_life/features/record/presentation/record_entry_screen.dart';
 import 'package:my_life/features/settings/presentation/me_screen.dart';
 import 'package:my_life/features/timeline/presentation/timeline_screen.dart';
+import 'package:my_life/features/payment_import/presentation/payment_import_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
@@ -46,6 +47,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/calendar-import',
         builder: (context, state) => const CalendarImportScreen(),
+      ),
+      GoRoute(
+        path: '/payment-import',
+        builder: (context, state) => const PaymentImportScreen(),
+      ),
+      GoRoute(
+        path: '/payment-imports/:id/review',
+        builder: (context, state) =>
+            PaymentReviewScreen(importId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/records/memo/new',

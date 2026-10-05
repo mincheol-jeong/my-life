@@ -96,7 +96,8 @@ V1 MVP에 포함합니다.
 - Memo Record
 - Expense Record와 기본 Finance 집계
 - Photo Record와 로컬 파일 저장
-- 사용자가 선택한 기기 캘린더 일정의 Memo 단방향 가져오기
+- 사용자가 선택한 기기 캘린더 일정의 Memo 단방향 가져오기와 opt-in 자동 반영
+- Android 선택 앱의 결제 알림 / iOS 단축어 텍스트 기반 지출 초안 가져오기와 확인 후 저장
 - 사용자가 선택한 사진의 촬영 날짜·장소 metadata 제안
 - Local SQLite storage
 - Me: App Version, Open Source Licenses
@@ -131,6 +132,7 @@ Phase별로 필요한 패키지만 추가합니다.
 - Phase 2 이후 필요 시: UUID
 - Phase 4: `image_picker`, `path_provider`, `path`, `image`
 - Lightweight device import: `device_calendar_plus`, `native_exif`, `geocoding`
+- Payment Import: Android NotificationListenerService / iOS URL scheme, Flutter MethodChannel; 새 패키지 없음
 - Display Language: Flutter Localizations, `shared_preferences`
 - Cloud Sync Phase: Dio 또는 당시 결정한 HTTP client
 
@@ -165,6 +167,7 @@ Freezed, Dio, 코드 생성 도구와 기타 패키지는 실제 사용처가 �
 - 관리자 Dashboard처럼 만들지 않습니다.
 - 주요 입력은 한 손으로 빠르게 완료할 수 있어야 합니다.
 - V1 MVP에 없는 Search, 독립 Calendar/Event, Place, Travel을 사용 가능한 기능처럼 노출하지 않습니다. 승인된 Calendar Import는 Me에서만 제공합니다.
+- 승인된 Calendar/Payment 연결은 Me에서 사용자가 켭니다. 캘린더 원본에 쓰지 않고, 지출은 확인 전 저장하지 않습니다. Calendar 자동 반영은 foreground 실행/복귀/주기 확인이며 앱 종료 중 실행을 보장하지 않습니다.
 - Empty, Loading, Error 상태를 사용자 언어로 제공합니다.
 - 충분한 터치 영역, 대비, 글자 크기와 시스템 font scale을 고려합니다.
 

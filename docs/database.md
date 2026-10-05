@@ -4,18 +4,19 @@
 
 V1 MVP는 Drift를 통해 로컬 SQLite에 접근합니다.
 
-V1 MVP 실제 table은 다음 네 개입니다.
+V1 MVP 실제 table은 다음 다섯 개입니다.
 
 ```text
 records
 expenses
 photos
 calendar_imports
+payment_imports
 ```
 
 `events`, `places`, `trips`, `trip_records`, user 또는 sync table은 V1 MVP schema와 migration에 포함하지 않습니다.
 
-`records`, `expenses`, `photos`, `calendar_imports`가 실제 구현되었습니다.
+`records`, `expenses`, `photos`, `calendar_imports`, `payment_imports`가 실제 구현되었습니다.
 
 ## 2. Principles
 
@@ -157,8 +158,27 @@ records (MEMO imported from calendar) 1 ─── 1 calendar_imports
 | `calendar_id` | TEXT | NO | OS calendar identifier |
 | `external_instance_id` | TEXT | NO | 단일/반복 일정 occurrence identifier |
 | `imported_at` | INTEGER | NO | UTC epoch milliseconds |
+| `source_snapshot` | TEXT | YES | 마지막 원본 Memo 필드 JSON; local 수정 보호 비교 기준 |
 
 `UNIQUE(calendar_id, external_instance_id)`로 같은 occurrence의 중복 가져오기를 방지합니다. Record를 soft delete해도 mapping은 보존하여 사용자가 삭제한 일정을 다시 가져오지 않습니다.
+
+자동 반영은 원본 snapshot과 현재 Record의 필드를 비교하여 local 수정 여부를 판단합니다. 기존 v5 mapping의 snapshot이 NULL이면 `updated_at == imported_at`인 경우에만 갱신하고 snapshot을 초기화합니다. 원본 삭제는 선택한 기간/접근 가능한 캘린더의 완전한 읽기가 성공했을 때만 반영합니다.
+
+### `payment_imports`
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `id` | TEXT PK | UUID |
+| `source` | TEXT NOT NULL | Android package 또는 단축어 source |
+| `external_id` | TEXT NOT NULL | 알림 key/postTime 또는 단축어의 전달 ID |
+| `raw_text` | TEXT NOT NULL | 미확인 원문; 저장/버리기 후 빈 문자열 |
+| `received_at` | INTEGER NOT NULL | UTC epoch milliseconds |
+| `record_id` | TEXT nullable FK | 확인 후 저장된 Expense Record |
+| `dismissed_at` | INTEGER nullable | 버린 시각, UTC epoch milliseconds |
+
+`UNIQUE(source, external_id)`는 동일 handoff의 재수신을 막습니다. `record_id IS NULL AND dismissed_at IS NULL`인 row만 미확인으로 조회합니다. 확인은 Record/Expense 생성과 mapping 갱신을 같은 transaction으로 처리합니다. 저장 전에는 Expense가 없으므로 Home/Finance 합계에 영향을 주지 않습니다. 기존 Record 삭제 후에도 mapping을 보존합니다.
+
+Android/iOS private native preferences의 입력 handoff queue는 최대 100개이며 7일 이내 항목만 읽습니다. Drift ingest 성공 이후에만 acknowledge하며 실패한 작업은 다음 실행에서 재시도합니다. SQLite에 가져온 초안은 사용자가 처리할 때까지 보존합니다.
 
 ## 10. Indexes
 
@@ -216,8 +236,9 @@ Current migration history:
 | 3 | `expenses` table, Record FK/UNIQUE, amount/category/payment constraint, category index |
 | 4 | `photos` table, Record FK, record/sort order UNIQUE, dimension/order constraint |
 | 5 | `calendar_imports` table, imported occurrence UNIQUE와 Record FK |
+| 6 | `payment_imports` table과 `calendar_imports.source_snapshot` |
 
-현재 `AppDatabase.schemaVersion`은 `5`입니다. 새 설치 schema와 version 1/2/3/4에서 version 5 upgrade를 test합니다.
+현재 `AppDatabase.schemaVersion`은 `6`입니다. 새 설치 schema와 version 1/2/3/4/5에서 version 6 upgrade를 test합니다.
 
 ## 14. Post-V1 Architecture
 

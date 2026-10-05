@@ -10,6 +10,56 @@ import 'package:my_life/features/record/domain/life_record.dart';
 import 'package:my_life/features/record/domain/local_date.dart';
 
 void main() {
+  test(
+    'upgrades a version 5 database preserving calendar links and records',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'my_life_upgrade_',
+      );
+      final file = File('${directory.path}/upgrade.sqlite');
+      AppDatabase? database;
+      try {
+        database = AppDatabase(NativeDatabase(file));
+        await database.customStatement(
+          "INSERT INTO records (id, type, title, event_date, created_at, updated_at) VALUES ('memo', 'MEMO', 'Keep me', '2026-10-05', 1, 1)",
+        );
+        await database.customStatement(
+          "INSERT INTO calendar_imports (record_id, calendar_id, external_instance_id, imported_at) VALUES ('memo', 'calendar', 'event', 1)",
+        );
+        await database.close();
+        database = AppDatabase(
+          NativeDatabase(
+            file,
+            setup: (raw) {
+              raw.execute('DROP TABLE payment_imports');
+              raw.execute(
+                'ALTER TABLE calendar_imports DROP COLUMN source_snapshot',
+              );
+              raw.execute('PRAGMA user_version = 5');
+            },
+          ),
+        );
+        expect(
+          (await database.select(database.records).get()).single.title,
+          'Keep me',
+        );
+        expect(
+          (await database.select(database.calendarImports).get())
+              .single
+              .sourceSnapshot,
+          isNull,
+        );
+        expect(await database.select(database.paymentImports).get(), isEmpty);
+        expect(
+          await database.customSelect('PRAGMA foreign_key_check').get(),
+          isEmpty,
+        );
+      } finally {
+        await database?.close();
+        await directory.delete(recursive: true);
+      }
+    },
+  );
   test('opens the database and enables foreign keys', () async {
     final database = AppDatabase(NativeDatabase.memory());
     addTearDown(database.close);
@@ -17,7 +67,7 @@ void main() {
     final row = await database.customSelect('PRAGMA foreign_keys').getSingle();
 
     expect(row.read<int>('foreign_keys'), 1);
-    expect(database.schemaVersion, 5);
+    expect(database.schemaVersion, 6);
   });
 
   test('migrates a version 1 database through the current schema', () async {

@@ -25,6 +25,8 @@ V1 MVP에 포함합니다.
 - 한국어 / English 표시 언어 선택
 - 로컬 사진 파일 저장
 - 사용자가 선택한 기기 캘린더 일정의 Memo 단방향 가져오기
+- opt-in Calendar 단방향 자동 반영
+- Android 결제 알림 / iOS 단축어 텍스트의 지출 초안과 확인 후 저장
 - 선택한 사진의 촬영 날짜·장소 metadata 제안
 - Drift/SQLite 기반 Local Storage
 
@@ -96,6 +98,8 @@ V1 MVP Home에 표시합니다.
 - 최근 Record
 - 이번 달 총 지출
 - 최근 Photo Record
+
+최근 Record는 Timeline 정렬을 재사용해 최대 5개, 최근 Photo Record는 최대 6개의 대표 썸네일을 표시합니다. 각 항목에서 타입별 detail로 이동합니다. 이번 달 총 지출은 active Expense의 기록 local date 기준으로 집계하고 저장·수정·삭제 stream을 반영합니다. 오늘 날짜와 집계 월은 자정 및 앱 복귀 시 갱신합니다.
 
 해당 기능의 Phase가 아직 완료되지 않았거나 데이터가 없으면 해당 section의 empty state를 표시합니다.
 
@@ -211,7 +215,24 @@ Record 1 ─── N Photo
 - 일정 title, description, 시작 local date/time, location을 Memo 필드로 변환합니다.
 - 반복 일정은 occurrence 단위 external instance ID로 중복 가져오기를 방지합니다.
 - 이미 가져온 일정과 title/content가 모두 빈 일정은 건너뜁니다.
-- 자동/background sync, 양방향 sync와 앱 내부 Event/Calendar 기능은 제공하지 않습니다.
+- 자동 반영을 켜면 선택한 캘린더와 고정 기간을 저장하고 앱 실행·복귀 시와 사용 중 5분마다 OS 내용을 다시 읽습니다. 앱 종료 중 background 실행은 보장하지 않습니다.
+- 원본 추가·수정·삭제를 Memo에 반영합니다. 마지막 원본 snapshot과 다른, 직접 수정한 Memo는 덮어쓰거나 삭제하지 않고 보호 수를 표시합니다. 앱에서 삭제한 Memo는 다시 생성하지 않습니다.
+- source 삭제로 soft delete된 Memo도 같은 occurrence ID로 자동 복원하지 않습니다. V1에는 Restore가 없습니다.
+- 권한 거부/철회, OS 읽기 실패, 선택한 캘린더에 접근할 수 없는 경우 기존 기록을 삭제하지 않습니다. 자동 반영은 언제든 끌 수 있습니다.
+- 반복 occurrence ID가 시작 시각 변경으로 바뀌면 기존 untouched occurrence를 삭제하고 새 occurrence로 가져올 수 있습니다.
+- 양방향 sync와 앱 내부 Event/Calendar 화면은 제공하지 않습니다.
+
+### Payment Import
+
+- Me → 지출 가져오기에서 명시적으로 연결을 켭니다. 기본값은 꺼짐입니다.
+- Android는 OS 알림 접근 설정을 사용자가 허용하고 선택한 설치 앱의 새 결제 알림만 로컬 native queue로 받습니다. 알림 권한은 전체 알림 접근 권한임을 설명합니다. 과거 카드 내역 조회는 아닙니다.
+- iOS는 사용자가 설정한 Shortcuts 자동화가 `mylife://payment-import?source=...&text=<URL encoded text>&id=<optional event ID>`로 텍스트를 전달합니다. MY LIFE는 다른 앱 알림을 직접 읽지 않습니다. iOS 27 앱 알림 trigger의 텍스트 전달 가능 여부는 실기기에서 검증합니다. 메시지 수신 자동화도 전달 adapter로 사용할 수 있습니다.
+- 양의 KRW 승인/결제 텍스트만 보수적으로 해석합니다. 금액 후보가 모호하거나 취소·환불·충전·입금·이체·청구·해외 통화 등은 제외합니다. 카드 네 종류의 실제 텍스트 호환성을 보장하지 않으며 은행 login/API, SMS 직접 읽기, 네트워크 전송은 추가하지 않습니다.
+- 금액·날짜·시간을 제안하고 카테고리는 OTHER로 시작합니다. 가맹점/분류는 원문을 보고 직접 확인합니다. 날짜가 없으면 수신 시각을 제안합니다.
+- 미확인 초안은 Home/Finance 지출에 포함하지 않습니다. 기존 Expense form에서 확인·수정 후 transaction으로 Expense와 처리 mapping을 저장합니다.
+- 동일 source/external ID를 다시 가져오지 않습니다. 서로 다른 알림·앱의 동일 결제를 자동으로 같은 거래로 단정하지 않습니다. iOS에서 안정된 ID를 전달하지 않은 별도 호출은 별도 초안이 될 수 있습니다.
+- 저장/버리기 후 원문은 지우고 중복 방지 mapping은 보존합니다. 연결을 끄면 native 대기 queue를 지우고 새 수집을 중단합니다. 이미 SQLite에 들어온 초안은 개별로 버릴 수 있습니다.
+- 취소 알림으로 기존 Expense를 자동 취소하지 않습니다. 사용자가 기존 지출을 삭제/수정합니다. 환불·음수 지출은 기존 V1 범위와 동일하게 제외합니다.
 
 ## 10. Finance
 
@@ -233,6 +254,7 @@ V1 MVP Me 화면에는 다음만 표시합니다.
 - App Version
 - Open Source Licenses
 - Device Calendar Import 진입점
+- Payment Import 진입점
 
 선택한 언어는 로컬 환경설정에 저장하고 앱 재실행 후에도 유지합니다. 초기값은 한국어입니다.
 
@@ -268,7 +290,7 @@ V1 MVP의 Record 생성, 수정, 삭제, 조회와 Finance 집계는 네트워�
 
 SQLite가 유일한 source of truth이며 UI는 Repository가 제공하는 상태 또는 stream을 구독합니다.
 
-Calendar와 Photo metadata는 사용자가 요청한 시점의 가져오기 입력일 뿐입니다. 가져온 Memo/Photo Record는 이후 SQLite에서 offline으로 동작합니다. Reverse geocoding이 실패해도 GPS 좌표 또는 수동 입력으로 계속할 수 있습니다.
+Calendar와 Photo metadata는 opt-in 기기 입력입니다. Calendar 자동 반영은 기기의 캘린더 저장소만 읽으며 가져온 Memo/Photo Record는 SQLite에서 offline으로 동작합니다. Payment도 기기의 알림/단축어 입력을 확인한 뒤 로컬 Expense로 저장합니다. Reverse geocoding이 실패해도 GPS 좌표 또는 수동 입력으로 계속할 수 있습니다.
 
 ## 15. V1 MVP Success Criteria
 

@@ -10,7 +10,13 @@ class TimelineRepository {
 
   final AppDatabase _database;
 
-  Stream<List<TimelineEntry>> watchEntries(TimelineFilter filter) {
+  Stream<List<TimelineEntry>> watchEntries(
+    TimelineFilter filter, {
+    int? limit,
+  }) {
+    if (limit != null && limit <= 0) {
+      throw ArgumentError.value(limit, 'limit', 'Must be positive');
+    }
     final query = _database.select(_database.records).join([
       leftOuterJoin(
         _database.expenses,
@@ -40,6 +46,22 @@ class TimelineRepository {
           _database.records.eventDate.isSmallerOrEqualValue(
             filter.endDate!.toIso8601String(),
           );
+    }
+
+    if (limit != null) {
+      // Limit parent records before joining photos so a multi-photo record
+      // neither consumes multiple slots nor loses attachments.
+      final recentIds = _database.selectOnly(_database.records)
+        ..addColumns([_database.records.id])
+        ..where(condition)
+        ..orderBy([
+          OrderingTerm.desc(_database.records.eventDate),
+          OrderingTerm.desc(_database.records.eventTimeMinutes),
+          OrderingTerm.desc(_database.records.createdAt),
+          OrderingTerm.desc(_database.records.id),
+        ])
+        ..limit(limit);
+      condition = condition & _database.records.id.isInQuery(recentIds);
     }
 
     query

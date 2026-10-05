@@ -4,16 +4,19 @@ import 'package:my_life/core/database/tables/expenses.dart';
 import 'package:my_life/core/database/tables/calendar_imports.dart';
 import 'package:my_life/core/database/tables/photos.dart';
 import 'package:my_life/core/database/tables/records.dart';
+import 'package:my_life/core/database/tables/payment_imports.dart';
 
 part 'app_database.g.dart';
 
-@DriftDatabase(tables: [Records, Expenses, Photos, CalendarImports])
+@DriftDatabase(
+  tables: [Records, Expenses, Photos, CalendarImports, PaymentImports],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
     : super(executor ?? driftDatabase(name: 'my_life'));
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -51,6 +54,15 @@ class AppDatabase extends _$AppDatabase {
 
       if (from < 5) {
         await migrator.createTable(calendarImports);
+      }
+      if (from < 6) {
+        await migrator.createTable(paymentImports);
+        if (from >= 5) {
+          await migrator.addColumn(
+            calendarImports,
+            calendarImports.sourceSnapshot,
+          );
+        }
       }
     },
     beforeOpen: (details) async {

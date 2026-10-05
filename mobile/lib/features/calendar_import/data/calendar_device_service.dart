@@ -39,17 +39,15 @@ class CalendarDeviceService {
   }) async {
     final events = await _calendar.listEvents(
       DateTime(start.year, start.month, start.day),
-      DateTime(
-        inclusiveEnd.year,
-        inclusiveEnd.month,
-        inclusiveEnd.day,
-      ).add(const Duration(days: 1)),
+      DateTime(inclusiveEnd.year, inclusiveEnd.month, inclusiveEnd.day + 1),
       calendarIds: calendarIds.toList(growable: false),
     );
     return events
         .where((event) => event.status != EventStatus.canceled)
         .map((event) {
-          final localStart = event.startDate.toLocal();
+          final localStart = event.isAllDay
+              ? event.startDate
+              : event.startDate.toLocal();
           return CalendarEventImportDraft(
             calendarId: event.calendarId,
             externalInstanceId: event.instanceId,

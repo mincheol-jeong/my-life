@@ -156,6 +156,8 @@ Timeline Refresh
 
 초기 버전에서는 오른쪽 SQLite만 사용합니다.
 
+승인된 기기 입력 확장도 로컬 원칙을 유지합니다. Calendar 단방향 자동 반영은 선택한 기기 캘린더를 읽어 Memo로 반영하고 local 수정은 보호합니다. Payment Import는 Android 선택 앱 알림 또는 iOS 단축어 텍스트 → native handoff queue → MethodChannel → Drift 미확인 초안 → 사용자 확인 → Expense transaction으로 처리합니다. OS 캘린더에는 쓰지 않고 금융 계정/API나 backend는 연결하지 않습니다.
+
 ---
 
 # 6. Future Cloud Sync

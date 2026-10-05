@@ -11,6 +11,7 @@ class CalendarImports extends Table {
   TextColumn get externalInstanceId => text()();
 
   IntColumn get importedAt => integer()();
+  TextColumn get sourceSnapshot => text().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {recordId};

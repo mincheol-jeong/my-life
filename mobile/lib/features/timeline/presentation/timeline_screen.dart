@@ -9,6 +9,7 @@ import 'package:my_life/features/record/domain/life_record.dart';
 import 'package:my_life/features/record/domain/local_date.dart';
 import 'package:my_life/features/timeline/application/timeline_providers.dart';
 import 'package:my_life/features/timeline/domain/timeline_entry.dart';
+import 'package:my_life/features/timeline/presentation/timeline_entry_labels.dart';
 
 class TimelineScreen extends ConsumerWidget {
   const TimelineScreen({super.key});
@@ -218,7 +219,7 @@ class _TimelineCard extends ConsumerWidget {
         child: InkWell(
           key: Key('timeline-entry-${record.id}'),
           borderRadius: BorderRadius.circular(16),
-          onTap: () => context.push(_detailPath(record)),
+          onTap: () => context.push(recordDetailPath(record)),
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Row(
@@ -234,7 +235,7 @@ class _TimelineCard extends ConsumerWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              _displayLabel(entry, strings),
+                              recordEntryLabel(entry, strings),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.titleMedium
@@ -404,33 +405,6 @@ class _ErrorState extends StatelessWidget {
   }
 }
 
-String _detailPath(LifeRecord record) => switch (record.type) {
-  RecordType.memo => '/records/${record.id}',
-  RecordType.expense => '/expenses/${record.id}',
-  RecordType.photo => '/photos/${record.id}',
-};
-
-String _displayLabel(TimelineEntry entry, AppStrings strings) {
-  final title = entry.record.title?.trim();
-  if (title != null && title.isNotEmpty) return title;
-  if (entry.record.type == RecordType.memo) {
-    for (final line in entry.record.content?.split('\n') ?? const <String>[]) {
-      final normalized = line.trim();
-      if (normalized.isNotEmpty) return normalized;
-    }
-  }
-  if (entry.record.type == RecordType.expense) {
-    final memo = entry.expenseMemo?.trim();
-    if (memo != null && memo.isNotEmpty) return memo;
-    final category = entry.expenseCategory;
-    if (category != null) return strings.expenseCategory(category);
-  }
-  if (entry.record.type == RecordType.photo && entry.photos.length > 1) {
-    return strings.get('photosCount', values: {'count': entry.photos.length});
-  }
-  return strings.get(entry.record.type.name);
-}
-
 String _subtitle(TimelineEntry entry, AppStrings strings) {
   return switch (entry.record.type) {
     RecordType.memo =>
@@ -438,7 +412,7 @@ String _subtitle(TimelineEntry entry, AppStrings strings) {
           ? entry.record.placeName!.trim()
           : strings.get('memo'),
     RecordType.expense => [
-      if (entry.expenseAmount != null) '₩${_number(entry.expenseAmount!)}',
+      if (entry.expenseAmount != null) formatWon(entry.expenseAmount!),
       if (entry.expenseCategory != null)
         strings.expenseCategory(entry.expenseCategory!),
     ].join(' · '),
@@ -447,14 +421,6 @@ String _subtitle(TimelineEntry entry, AppStrings strings) {
       values: {'count': entry.photos.length},
     ),
   };
-}
-
-String _number(int value) {
-  final digits = value.toString();
-  return digits.replaceAllMapped(
-    RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-    (match) => '${match[1]},',
-  );
 }
 
 String _time(int minutes) {
