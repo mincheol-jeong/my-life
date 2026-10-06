@@ -1,0 +1,6 @@
+# Copy to key.properties locally; never commit passwords or private keys.
+# Use an absolute path to your privately stored upload keystore.
+storeFile=/absolute/path/to/my-life-upload.jks
+storePassword=REPLACE_LOCALLY
+keyAlias=upload
+keyPassword=REPLACE_LOCALLY

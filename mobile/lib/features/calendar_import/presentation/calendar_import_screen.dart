@@ -66,17 +66,17 @@ class _Content extends ConsumerWidget {
                   (sync.value == null && state.selectedCalendarIds.isEmpty)
               ? null
               : (enabled) async {
-                  await ref
-                      .read(calendarSyncControllerProvider.notifier)
-                      .configure(
-                        enabled
-                            ? CalendarSyncSettings(
-                                ids: state.selectedCalendarIds,
-                                start: state.startDate,
-                                end: state.endDate,
-                              )
-                            : null,
-                      );
+                  await _configureCalendarSync(
+                    context,
+                    ref,
+                    enabled
+                        ? CalendarSyncSettings(
+                            ids: state.selectedCalendarIds,
+                            start: state.startDate,
+                            end: state.endDate,
+                          )
+                        : null,
+                  );
                 },
         ),
         if (sync.value != null) ...[
@@ -90,17 +90,17 @@ class _Content extends ConsumerWidget {
             ),
           ),
           TextButton(
-            onPressed: state.selectedCalendarIds.isEmpty
+            onPressed: sync.isLoading || state.selectedCalendarIds.isEmpty
                 ? null
-                : () => ref
-                      .read(calendarSyncControllerProvider.notifier)
-                      .configure(
-                        CalendarSyncSettings(
-                          ids: state.selectedCalendarIds,
-                          start: state.startDate,
-                          end: state.endDate,
-                        ),
-                      ),
+                : () => _configureCalendarSync(
+                    context,
+                    ref,
+                    CalendarSyncSettings(
+                      ids: state.selectedCalendarIds,
+                      start: state.startDate,
+                      end: state.endDate,
+                    ),
+                  ),
             child: Text(strings.get('calendarSyncApply')),
           ),
         ],
@@ -247,9 +247,9 @@ class _PermissionState extends ConsumerWidget {
             const SizedBox(height: 20),
             if (ref.watch(calendarSyncControllerProvider).value != null)
               TextButton(
-                onPressed: () => ref
-                    .read(calendarSyncControllerProvider.notifier)
-                    .configure(null),
+                onPressed: ref.watch(calendarSyncControllerProvider).isLoading
+                    ? null
+                    : () => _configureCalendarSync(context, ref, null),
                 child: Text(context.strings.get('calendarSyncDisable')),
               ),
             if (!restricted)
@@ -302,4 +302,19 @@ class _ErrorState extends StatelessWidget {
 String _date(DateTime value) {
   return '${value.year}.${value.month.toString().padLeft(2, '0')}.'
       '${value.day.toString().padLeft(2, '0')}';
+}
+
+Future<void> _configureCalendarSync(
+  BuildContext context,
+  WidgetRef ref,
+  CalendarSyncSettings? settings,
+) async {
+  final saved = await ref
+      .read(calendarSyncControllerProvider.notifier)
+      .configure(settings);
+  if (!saved && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.strings.get('calendarSettingsSaveError'))),
+    );
+  }
 }

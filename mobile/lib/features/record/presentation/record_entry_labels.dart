@@ -28,6 +28,3 @@ String recordEntryLabel(TimelineEntry entry, AppStrings strings) {
   }
   return strings.get(entry.record.type.name);
 }
-
-String formatWon(int value) =>
-    '₩${value.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (match) => '${match[1]},')}';

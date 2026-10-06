@@ -8,6 +8,14 @@ MY LIFE의 사용자 또는 개발자에게 의미 있는 변경을 기록합니
 
 ### Added
 
+- Phase 8 Me의 실제 Android/iOS version/build, 라이선스 목록/본문과 로컬 보관·백업 미지원 안내
+- 사진 삭제 journal과 다음 사진 접근/쓰기 시 DB 기준 중단 복구, 미저장 앱 전용 사진 잔여물 정리
+- Me 6개, 사진 실패/중단 복구 6개, 좁은 화면·큰 글자·키보드 입력 접근 3개의 추가 테스트
+- Android signing 설정 예제와 회사 실기기/업데이트/스토어 배포 체크리스트
+- Post-V1 회원 정보 관리와 수익화 제안 문서 (계정/결제 구현과 가격 확정 없음)
+- Phase 7 Finance 월별 총액, 카테고리별·일별 지출과 이전/다음 월·이번 달 복귀
+- Finance 한국어/English, empty/loading/error·재시도와 기본 월 자정/앱 복귀 갱신
+- Finance 집계·월 선택·화면 회귀 테스트 17개와 README 수동 테스트 안내
 - V1 MVP 요구사항, 아키텍처, 데이터베이스, UI/UX 및 개발 Roadmap 문서
 - Flutter 3.47.5 / Dart 3.13.4 기반 `mobile/` 프로젝트
 - Riverpod, GoRouter, Drift/SQLite Foundation
@@ -41,6 +49,12 @@ MY LIFE의 사용자 또는 개발자에게 의미 있는 변경을 기록합니
 
 ### Changed
 
+- 안정화 변경사항 커밋을 위해 개발 버전을 `0.1.1+2`로 증가 (정식 릴리스 아님; 실기기·서명 검증 미완료)
+- 입력창·기록 card·사진 thumbnail·dialog·bottom sheet 모서리를 둥글게 통일하고 입력 테두리를 공통 Theme으로 관리
+- Record 입력 화면의 공통 표시/뒤로가기, 날짜·시간·KRW formatter와 Home/Finance 날짜 갱신을 통합
+- Timeline을 ListView.builder로 변경 (DB pagination은 미적용)
+- 사용자 지시에 따라 커밋마다 기본 PATCH/build number 증가 및 앱·VERSION·README 일치 정책으로 변경
+- Architecture/Design의 Record 관계, Repository 경계, V1 기술·navigation과 Post-V1 구분 정리
 - V1 MVP Record Type을 `MEMO`, `EXPENSE`, `PHOTO`로 확정
 - Travel을 Record Type이 아닌 향후 Container/Aggregate로 정의
 - 단순한 Feature Based Architecture와 Repository 경계를 명확화
@@ -59,13 +73,24 @@ MY LIFE의 사용자 또는 개발자에게 의미 있는 변경을 기록합니
 
 ### Removed
 
+- 미사용 SectionPlaceholder widget과 AppLogger.info 제거
 - V1 MVP 범위에서 Search, Calendar, Event, 독립 Place, Travel, Backup/Restore 제거
 
 ### Fixed
 
+- 지출 상세의 뒤로가기와 별개로 항상 Home으로 이동하는 홈 버튼 제공
+- Memo/Expense/Photo 저장 후 상세 화면의 이동 버튼 누락 수정: 이전 화면으로 돌아가기 또는 Home fallback 제공
+- Memo/Expense/Photo 저장 중 화면 종료 시 disposed controller 접근과 중복 제출
+- 사진 동시 삭제로 마지막 사진 조건이 깨지는 경합과 삭제 중 반복 입력
+- 늦게 도착한 사진 metadata가 수동 입력 또는 변경된 첫 사진의 제안을 덮어쓰는 문제
+- 캘린더 설정 저장 실패 시 기존 설정 복원·오류 안내 및 겹치는 자동 반영 요청
+- 음수/부호가 있는 결제 금액을 양수 지출로 오인하는 parser 문제
+- 위 오류와 공통 formatter 회귀 테스트 19개 추가 (전체 130개 통과)
+- 언어 설정 저장 실패 시 이전 선택 복원과 오류 안내, 언어/지출 dropdown의 큰 글자 가로 넘침
 - 설계 문서 간 V1 MVP 범위와 Phase 중복 정리
 - Memo, Expense, Photo 작성 화면에서 진입 경로와 관계없이 표시되는 뒤로가기 동작
 
 ### Security
 
-- 없음
+- Android release의 debug 서명 fallback 제거와 인증서 설정 누락 시 명시적 실패
+- 앱 관리 사진 경로의 저장소 밖 접근 차단

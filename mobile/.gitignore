@@ -31,7 +31,15 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+/android/build/
 /coverage/
+
+# Release credentials stay local.
+/android/key.properties
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
 
 # Symbolication related
 app.*.symbols

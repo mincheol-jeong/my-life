@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_life/features/calendar_import/application/calendar_sync_controller.dart';
 import 'package:my_life/features/payment_import/application/payment_import_providers.dart';
+import 'package:my_life/features/record/application/local_date_provider.dart';
 
 class DeviceImportSync extends ConsumerStatefulWidget {
   const DeviceImportSync({required this.child, super.key});
@@ -45,6 +46,7 @@ class _DeviceImportSyncState extends ConsumerState<DeviceImportSync>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      ref.invalidate(todayProvider);
       _start();
     } else {
       _timer?.cancel();

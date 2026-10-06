@@ -32,18 +32,30 @@ class MemoController extends AsyncNotifier<void> {
   }
 
   Future<bool> delete(String id) async {
+    if (state.isLoading) return false;
+    final keepAlive = ref.keepAlive();
     state = const AsyncLoading();
-    final result = await AsyncValue.guard(
-      () => ref.read(recordRepositoryProvider).softDelete(id),
-    );
-    state = result;
-    return !result.hasError;
+    try {
+      final result = await AsyncValue.guard(
+        () => ref.read(recordRepositoryProvider).softDelete(id),
+      );
+      if (ref.mounted) state = result;
+      return !result.hasError;
+    } finally {
+      keepAlive.close();
+    }
   }
 
   Future<LifeRecord?> _perform(Future<LifeRecord> Function() operation) async {
+    if (state.isLoading) return null;
+    final keepAlive = ref.keepAlive();
     state = const AsyncLoading();
-    final result = await AsyncValue.guard(operation);
-    state = result.whenData((_) {});
-    return result.value;
+    try {
+      final result = await AsyncValue.guard(operation);
+      if (ref.mounted) state = result.whenData((_) {});
+      return result.value;
+    } finally {
+      keepAlive.close();
+    }
   }
 }

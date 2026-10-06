@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 import 'package:my_life/core/database/app_database.dart';
 import 'package:my_life/features/photo/data/photo_storage.dart';
@@ -20,12 +22,66 @@ class PhotoRepository {
   final PhotoStorage _storage;
   final UtcClock _clock;
   final IdGenerator _idGenerator;
+  Future<void>? _recovery;
+  final _recordOperations = <String, Future<void>>{};
+
+  Future<T> _withRecordLock<T>(
+    String id,
+    Future<T> Function() operation,
+  ) async {
+    final previous = _recordOperations[id];
+    final completed = Completer<void>();
+    _recordOperations[id] = completed.future;
+    try {
+      if (previous != null) await previous;
+      return await operation();
+    } finally {
+      completed.complete();
+      if (identical(_recordOperations[id], completed.future)) {
+        _recordOperations.remove(id);
+      }
+    }
+  }
+
+  Future<void> recoverInterruptedOperations() => _recovery ??= _recover();
+
+  Future<void> _recover() async {
+    try {
+      final rows =
+          await (_database.select(_database.photos).join([
+                innerJoin(
+                  _database.records,
+                  _database.records.id.equalsExp(_database.photos.recordId),
+                ),
+              ])..where(
+                _database.records.deletedAt.isNull() &
+                    _database.records.type.equals(
+                      RecordType.photo.databaseValue,
+                    ),
+              ))
+              .get();
+      final photos = rows.map((row) => row.readTable(_database.photos));
+      await _storage.recoverInterruptedOperations(
+        activePaths: {
+          for (final photo in photos) ...[
+            photo.filePath,
+            if (photo.thumbnailPath != null) photo.thumbnailPath!,
+          ],
+        },
+        activeRecordIds: photos.map((photo) => photo.recordId).toSet(),
+      );
+    } catch (_) {
+      _recovery = null;
+      rethrow;
+    }
+  }
 
   Future<PhotoRecord> create(PhotoDraft draft, List<String> sourcePaths) async {
     final normalized = _normalizeAndValidate(draft);
     if (sourcePaths.isEmpty) {
       throw const PhotoValidationException('사진을 한 장 이상 선택해주세요.');
     }
+    await recoverInterruptedOperations();
     final recordId = _idGenerator();
     final photoIds = List.generate(sourcePaths.length, (_) => _idGenerator());
     final prepared = await _storage.preparePhotos(
@@ -84,7 +140,10 @@ class PhotoRepository {
     return _activePhotoQuery(recordId).watch().map(_mapRows);
   }
 
-  Future<PhotoRecord> updateMetadata(String recordId, PhotoDraft draft) async {
+  Future<PhotoRecord> updateMetadata(String recordId, PhotoDraft draft) =>
+      _withRecordLock(recordId, () => _updateMetadata(recordId, draft));
+
+  Future<PhotoRecord> _updateMetadata(String recordId, PhotoDraft draft) async {
     final normalized = _normalizeAndValidate(draft);
     final updatedAt = _clock().toUtc().millisecondsSinceEpoch;
     final affected =
@@ -107,7 +166,11 @@ class PhotoRepository {
     return (await getById(recordId))!;
   }
 
-  Future<void> deletePhoto(String recordId, String photoId) async {
+  Future<void> deletePhoto(String recordId, String photoId) =>
+      _withRecordLock(recordId, () => _deletePhoto(recordId, photoId));
+
+  Future<void> _deletePhoto(String recordId, String photoId) async {
+    await recoverInterruptedOperations();
     final record = await getById(recordId);
     if (record == null) throw RecordNotFoundException(recordId);
     if (record.photos.length <= 1) throw const LastPhotoDeletionException();
@@ -120,6 +183,11 @@ class PhotoRepository {
 
     try {
       await _database.transaction(() async {
+        final current = await getById(recordId);
+        if (current == null) throw RecordNotFoundException(recordId);
+        if (current.photos.length <= 1) {
+          throw const LastPhotoDeletionException();
+        }
         final removed = await (_database.delete(
           _database.photos,
         )..where((row) => row.id.equals(photoId))).go();
@@ -144,7 +212,11 @@ class PhotoRepository {
     await staged.commit();
   }
 
-  Future<void> deleteRecord(String recordId) async {
+  Future<void> deleteRecord(String recordId) =>
+      _withRecordLock(recordId, () => _deleteRecord(recordId));
+
+  Future<void> _deleteRecord(String recordId) async {
+    await recoverInterruptedOperations();
     final record = await getById(recordId);
     if (record == null) throw RecordNotFoundException(recordId);
     final staged = await _storage.stageDeletion(

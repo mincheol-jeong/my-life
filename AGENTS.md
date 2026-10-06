@@ -101,6 +101,7 @@ V1 MVP에 포함합니다.
 - 사용자가 선택한 사진의 촬영 날짜·장소 metadata 제안
 - Local SQLite storage
 - Me: App Version, Open Source Licenses
+- Me: 로컬 보관/백업 미지원과 데이터 유실 위험 안내
 
 V1 MVP에서 제외합니다.
 
@@ -224,9 +225,9 @@ Review
 
 - README는 실제 저장소 상태만 설명합니다.
 - 존재하지 않는 명령, 기능, 설정을 완료된 것처럼 문서화하지 않습니다.
-- VERSION은 release 준비 시 실제 앱 버전과 맞춥니다.
+- VERSION과 README는 실제 앱 버전(`mobile/pubspec.yaml`)과 항상 맞춥니다.
 - CHANGELOG는 `Unreleased` 아래에 사용자 또는 개발자에게 의미 있는 변경을 기록합니다.
-- 버전을 매 commit마다 자동으로 올리지 않습니다.
+- 사용자 승인으로 커밋할 때마다 버전을 올립니다. 기본은 PATCH 증가이며 MINOR/MAJOR 변경은 별도 지시에 따릅니다. Flutter build number도 증가시킵니다.
 - Architecture, Database, UI 또는 개발 절차가 바뀌면 관련 문서를 함께 갱신합니다.
 
 ## 13. Definition of Done
@@ -237,3 +238,9 @@ Review
 - `flutter analyze`가 통과합니다.
 - 불필요한 코드와 패키지가 없습니다.
 - 문서가 실제 구현과 일치합니다.
+
+## 14. Approved Post-V1 Planning
+
+- 사용자가 요청한 회원 정보 관리와 수익화는 `docs/accounts.md`, `docs/monetization.md`의 제안으로 관리합니다.
+- V1에 로그인/서버/결제/paywall/광고 SDK를 미리 넣지 않습니다. 구현 전에 상품·인증·소유권·운영 정책 승인이 필요합니다.
+- 회사 실기기 검증과 인증서가 필요한 배포 검증은 `docs/release.md`에 미완료 상태로 유지합니다.

@@ -9,6 +9,7 @@ import 'package:my_life/features/photo/data/photo_storage.dart';
 import 'package:my_life/features/photo/domain/photo_record.dart';
 
 final photoStorageProvider = Provider<PhotoStorage>((ref) => PhotoStorage());
+final photoPickerProvider = Provider<ImagePicker>((ref) => ImagePicker());
 
 final photoMetadataReaderProvider = Provider<PhotoMetadataReader>((ref) {
   return const PhotoMetadataReader();
@@ -52,10 +53,15 @@ final photoDetailProvider = StreamProvider.autoDispose
       (ref, id) => ref.watch(photoRepositoryProvider).watchById(id),
     );
 
-final photoPathProvider = FutureProvider.autoDispose.family<String, String>(
-  (ref, relativePath) =>
-      ref.watch(photoStorageProvider).absolutePath(relativePath),
-);
+final photoPathProvider = FutureProvider.autoDispose.family<String, String>((
+  ref,
+  relativePath,
+) async {
+  final repository = ref.watch(photoRepositoryProvider);
+  final storage = ref.watch(photoStorageProvider);
+  await repository.recoverInterruptedOperations();
+  return storage.absolutePath(relativePath);
+});
 
 final photoControllerProvider =
     AsyncNotifierProvider.autoDispose<PhotoController, void>(
@@ -93,16 +99,28 @@ class PhotoController extends AsyncNotifier<void> {
   Future<PhotoRecord?> _perform(
     Future<PhotoRecord> Function() operation,
   ) async {
+    if (state.isLoading) return null;
+    final keepAlive = ref.keepAlive();
     state = const AsyncLoading();
-    final result = await AsyncValue.guard(operation);
-    state = result.whenData((_) {});
-    return result.value;
+    try {
+      final result = await AsyncValue.guard(operation);
+      if (ref.mounted) state = result.whenData((_) {});
+      return result.value;
+    } finally {
+      keepAlive.close();
+    }
   }
 
   Future<bool> _performVoid(Future<void> Function() operation) async {
+    if (state.isLoading) return false;
+    final keepAlive = ref.keepAlive();
     state = const AsyncLoading();
-    final result = await AsyncValue.guard(operation);
-    state = result;
-    return !result.hasError;
+    try {
+      final result = await AsyncValue.guard(operation);
+      if (ref.mounted) state = result;
+      return !result.hasError;
+    } finally {
+      keepAlive.close();
+    }
   }
 }

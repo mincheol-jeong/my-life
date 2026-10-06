@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_life/app/app.dart';
@@ -12,8 +13,19 @@ import 'package:my_life/features/calendar_import/domain/calendar_import_models.d
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  const appInfoChannel = MethodChannel('com.mincheol.mylife/app_info');
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          appInfoChannel,
+          (call) async => {'version': '0.1.0', 'buildNumber': '1'},
+        );
+  });
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(appInfoChannel, null);
   });
 
   testWidgets('renders the app shell and navigates between sections', (
@@ -48,11 +60,20 @@ void main() {
       find.byKey(const Key('memo-content-field')),
       '오늘의 메모',
     );
-    await tester.tap(find.byKey(const Key('save-memo-button')));
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    final memoSaveButton = find.byKey(const Key('save-memo-button'));
+    await tester.ensureVisible(memoSaveButton);
+    await tester.pumpAndSettle();
+    await tester.tap(memoSaveButton);
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('memo-detail-title')), findsOneWidget);
     expect(find.text('오늘의 메모'), findsNWidgets(2));
+
+    await tester.tap(find.byKey(const Key('memo-detail-back-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('MY LIFE'), findsOneWidget);
+    expect(find.byKey(const Key('memo-detail-title')), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
@@ -85,6 +106,11 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
     final saveButton = find.byKey(const Key('save-expense-button'));
+    await tester.scrollUntilVisible(
+      saveButton,
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.ensureVisible(saveButton);
     await tester.pumpAndSettle();
     await tester.tap(saveButton);
@@ -94,6 +120,26 @@ void main() {
     expect(find.text('₩45,000'), findsOneWidget);
     expect(find.text('식비'), findsOneWidget);
     expect(find.text('카드'), findsOneWidget);
+    expect(find.byKey(const Key('expense-detail-home-button')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('expense-detail-back-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('MY LIFE'), findsOneWidget);
+
+    await tester.tap(find.text('타임라인'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('저녁 식사'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('expense-detail-back-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('timeline-filter-expense')), findsOneWidget);
+
+    await tester.tap(find.text('저녁 식사'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('expense-detail-home-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('MY LIFE'), findsOneWidget);
+    expect(find.byKey(const Key('expense-detail-title')), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
@@ -191,6 +237,12 @@ void main() {
     await tester.tap(find.byKey(const Key('timeline-entry-timeline-memo')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('memo-detail-title')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('memo-detail-back-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('timeline-filter-memo')), findsOneWidget);
+    expect(find.text('Timeline expense'), findsNothing);
+    expect(find.byKey(const Key('memo-detail-title')), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));

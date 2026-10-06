@@ -13,6 +13,20 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
+            "com.mincheol.mylife/app_info").setMethodCallHandler { call, result ->
+            if (call.method != "getAppInfo") {
+                result.notImplemented()
+            } else {
+                try {
+                    @Suppress("DEPRECATION")
+                    val info = packageManager.getPackageInfo(packageName, 0)
+                    @Suppress("DEPRECATION")
+                    val build = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()
+                    result.success(mapOf("version" to (info.versionName ?: ""), "buildNumber" to build.toString()))
+                } catch (_: Exception) { result.error("APP_INFO", "App information unavailable", null) }
+            }
+        }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
             "com.mincheol.mylife/payment_import").setMethodCallHandler { call, result ->
             try {
                 val store = PaymentInbox(this)

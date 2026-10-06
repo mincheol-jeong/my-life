@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_life/core/localization/app_strings.dart';
+import 'package:my_life/features/record/presentation/record_detail_back_button.dart';
 import 'package:my_life/features/photo/application/photo_providers.dart';
 import 'package:my_life/features/photo/domain/photo_record.dart';
 
@@ -20,10 +21,22 @@ class PhotoDetailScreen extends ConsumerWidget {
           data: (record) => record == null
               ? _MissingDetail(onClose: () => context.go('/'))
               : _PhotoDetail(record: record),
-          loading: () =>
-              const Scaffold(body: Center(child: CircularProgressIndicator())),
+          loading: () => Scaffold(
+            appBar: AppBar(
+              leading: const RecordDetailBackButton(
+                key: Key('photo-detail-back-button'),
+              ),
+              title: Text(context.strings.get('photo')),
+            ),
+            body: const Center(child: CircularProgressIndicator()),
+          ),
           error: (_, _) => Scaffold(
-            appBar: AppBar(title: Text(context.strings.get('photo'))),
+            appBar: AppBar(
+              leading: const RecordDetailBackButton(
+                key: Key('photo-detail-back-button'),
+              ),
+              title: Text(context.strings.get('photo')),
+            ),
             body: Center(child: Text(context.strings.get('loadError'))),
           ),
         );
@@ -37,20 +50,26 @@ class _PhotoDetail extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isBusy = ref.watch(photoControllerProvider).isLoading;
     return Scaffold(
       appBar: AppBar(
+        leading: const RecordDetailBackButton(
+          key: Key('photo-detail-back-button'),
+        ),
         title: Text(context.strings.get('photo')),
         actions: [
           IconButton(
             key: const Key('edit-photo-button'),
             tooltip: context.strings.get('edit'),
-            onPressed: () => context.push('/photos/${record.record.id}/edit'),
+            onPressed: isBusy
+                ? null
+                : () => context.push('/photos/${record.record.id}/edit'),
             icon: const Icon(Icons.edit_outlined),
           ),
           IconButton(
             key: const Key('delete-photo-record-button'),
             tooltip: context.strings.get('delete'),
-            onPressed: () => _confirmDeleteRecord(context, ref),
+            onPressed: isBusy ? null : () => _confirmDeleteRecord(context, ref),
             icon: const Icon(Icons.delete_outline_rounded),
           ),
         ],
@@ -104,8 +123,9 @@ class _PhotoDetail extends ConsumerWidget {
                       child: IconButton.filledTonal(
                         key: Key('delete-photo-${photo.id}'),
                         tooltip: context.strings.get('photoDelete'),
-                        onPressed: () =>
-                            _confirmDeletePhoto(context, ref, photo),
+                        onPressed: isBusy
+                            ? null
+                            : () => _confirmDeletePhoto(context, ref, photo),
                         icon: const Icon(Icons.delete_outline_rounded),
                       ),
                     ),
@@ -241,7 +261,7 @@ class _StoredImage extends ConsumerWidget {
         .watch(photoPathProvider(relativePath))
         .when(
           data: (path) => ClipRRect(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             child: Ink.image(
               image: FileImage(File(path)),
               fit: BoxFit.cover,
@@ -262,7 +282,12 @@ class _MissingDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(context.strings.get('photo'))),
+    appBar: AppBar(
+      leading: const RecordDetailBackButton(
+        key: Key('photo-detail-back-button'),
+      ),
+      title: Text(context.strings.get('photo')),
+    ),
     body: Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,

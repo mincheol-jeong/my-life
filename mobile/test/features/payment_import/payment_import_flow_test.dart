@@ -1,5 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_life/app/app.dart';
@@ -11,7 +12,20 @@ import 'package:my_life/features/payment_import/domain/payment_message.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  TestWidgetsFlutterBinding.ensureInitialized();
+  const appInfoChannel = MethodChannel('com.mincheol.mylife/app_info');
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          appInfoChannel,
+          (call) async => {'version': '0.1.0', 'buildNumber': '1'},
+        );
+  });
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(appInfoChannel, null);
+  });
   testWidgets(
     'import entry never grants access implicitly; enable, review then save',
     (tester) async {

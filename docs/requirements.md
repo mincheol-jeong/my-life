@@ -238,9 +238,11 @@ Record 1 ─── N Photo
 
 V1 MVP Finance는 Expense Record를 집계합니다.
 
-- 이번 달 총 지출
+- 월별 총 지출 (기본 이번 달, 이전/다음 월과 이번 달로 돌아가기)
 - 카테고리별 지출
 - 일별 지출
+
+집계 기준은 Record의 local date이며 soft-deleted Expense와 미확인 결제 초안은 제외합니다. 지출이 있는 카테고리/날짜만 표시하며 카테고리는 합계 내림차순(동률은 enum 순), 일별은 날짜 최신순입니다. 총액과 두 분류 합계는 일치해야 하며 생성·수정·삭제가 stream으로 반영됩니다. 기본 월은 자정/앱 복귀 시 갱신하고 사용자가 조회 중인 월은 유지합니다.
 
 차트는 필수 요구사항이 아닙니다. 숫자와 간단한 목록을 우선합니다.
 
@@ -255,8 +257,11 @@ V1 MVP Me 화면에는 다음만 표시합니다.
 - Open Source Licenses
 - Device Calendar Import 진입점
 - Payment Import 진입점
+- 로컬 보관과 백업/기기 동기화 미지원·앱 삭제/초기화/기기 분실의 데이터 유실 위험 안내
 
 선택한 언어는 로컬 환경설정에 저장하고 앱 재실행 후에도 유지합니다. 초기값은 한국어입니다.
+
+언어 저장 실패 시 이전 언어/선택으로 복귀하고 사용자 언어의 안내를 표시합니다. 버전은 native 설치 패키지의 version/build에서 읽으며 실패 시 재시도를 제공합니다. 라이선스는 Flutter의 실제 bundled LicenseRegistry를 표시합니다.
 
 Theme Selector, Login, Account, Backup/Restore, Notification, App Lock, Cloud Sync와 AI 설정은 노출하지 않습니다.
 
@@ -342,11 +347,15 @@ Travel
 
 Backup 이후 Cloud Sync, AI 순서로 확장합니다. Cloud Sync가 실제로 시작될 때 conflict와 remote data source를 설계합니다.
 
-## 17. Out of Scope
+### Approved Post-V1 Planning
+
+회원 관리와 수익화는 후속 제안 문서로 추가합니다. [회원 정보 관리](accounts.md), [수익화 계획](monetization.md). 현재 V1 Scope 변경이나 구현 승인이 아니며, 회원가입/Cloud 동의 분리와 기록 조회·삭제 보존을 제안합니다.
+
+## 17. V1 MVP Out of Scope
 
 - SNS와 친구 기능
 - 공개 프로필
-- 광고와 결제
+- 광고와 MY LIFE 상품 결제 (Post-V1 계획만 존재)
 - 커뮤니티
 - 추천 알고리즘
 - 과도한 gamification

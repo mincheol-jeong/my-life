@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:my_life/shared/formatting/display_formatters.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_life/core/localization/app_strings.dart';
+import 'package:my_life/features/record/presentation/record_detail_back_button.dart';
 import 'package:my_life/features/expense/application/expense_providers.dart';
 import 'package:my_life/features/expense/domain/expense_record.dart';
 
@@ -18,10 +20,24 @@ class ExpenseDetailScreen extends ConsumerWidget {
           data: (expense) => expense == null
               ? _MissingDetail(onClose: () => context.go('/'))
               : _ExpenseDetail(expense: expense),
-          loading: () =>
-              const Scaffold(body: Center(child: CircularProgressIndicator())),
+          loading: () => Scaffold(
+            appBar: AppBar(
+              leading: const RecordDetailBackButton(
+                key: Key('expense-detail-back-button'),
+              ),
+              title: Text(context.strings.get('expense')),
+              actions: [_homeButton(context)],
+            ),
+            body: const Center(child: CircularProgressIndicator()),
+          ),
           error: (_, _) => Scaffold(
-            appBar: AppBar(title: Text(context.strings.get('expense'))),
+            appBar: AppBar(
+              leading: const RecordDetailBackButton(
+                key: Key('expense-detail-back-button'),
+              ),
+              title: Text(context.strings.get('expense')),
+              actions: [_homeButton(context)],
+            ),
             body: Center(child: Text(context.strings.get('loadError'))),
           ),
         );
@@ -37,8 +53,12 @@ class _ExpenseDetail extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
+        leading: const RecordDetailBackButton(
+          key: Key('expense-detail-back-button'),
+        ),
         title: Text(context.strings.get('expense')),
         actions: [
+          _homeButton(context),
           IconButton(
             key: const Key('edit-expense-button'),
             tooltip: context.strings.get('edit'),
@@ -67,7 +87,7 @@ class _ExpenseDetail extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              '₩${_formatAmount(expense.amount)}',
+              formatWon(expense.amount),
               key: const Key('expense-detail-amount'),
               style: Theme.of(context).textTheme.displaySmall
                   ?.copyWith(fontWeight: FontWeight.w600),
@@ -173,7 +193,13 @@ class _MissingDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(context.strings.get('expense'))),
+    appBar: AppBar(
+      leading: const RecordDetailBackButton(
+        key: Key('expense-detail-back-button'),
+      ),
+      title: Text(context.strings.get('expense')),
+      actions: [_homeButton(context)],
+    ),
     body: Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -190,15 +216,12 @@ class _MissingDetail extends StatelessWidget {
   );
 }
 
-String _formatAmount(int amount) {
-  final digits = amount.toString();
-  final result = StringBuffer();
-  for (var index = 0; index < digits.length; index++) {
-    if (index > 0 && (digits.length - index) % 3 == 0) result.write(',');
-    result.write(digits[index]);
-  }
-  return result.toString();
-}
+Widget _homeButton(BuildContext context) => IconButton(
+  key: const Key('expense-detail-home-button'),
+  tooltip: context.strings.get('goHome'),
+  onPressed: () => context.go('/'),
+  icon: const Icon(Icons.home_outlined),
+);
 
 String _metadata(ExpenseRecord expense) {
   final date = expense.record.eventDate;

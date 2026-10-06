@@ -1,3 +1,4 @@
+import 'package:my_life/shared/formatting/display_formatters.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:my_life/core/localization/app_strings.dart';
 import 'package:my_life/features/expense/presentation/expense_form_screen.dart';
 import 'package:my_life/features/payment_import/application/payment_import_providers.dart';
-import 'package:my_life/features/timeline/presentation/timeline_entry_labels.dart';
 
 class PaymentImportScreen extends ConsumerWidget {
   const PaymentImportScreen({super.key});

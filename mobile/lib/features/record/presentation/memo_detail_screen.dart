@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_life/core/localization/app_strings.dart';
+import 'package:my_life/features/record/presentation/record_detail_back_button.dart';
 import 'package:my_life/features/record/application/record_providers.dart';
 import 'package:my_life/features/record/domain/life_record.dart';
 
@@ -18,10 +19,22 @@ class MemoDetailScreen extends ConsumerWidget {
           data: (record) => record == null || record.type != RecordType.memo
               ? _MissingDetail(onClose: () => context.go('/'))
               : _MemoDetail(record: record),
-          loading: () =>
-              const Scaffold(body: Center(child: CircularProgressIndicator())),
+          loading: () => Scaffold(
+            appBar: AppBar(
+              leading: const RecordDetailBackButton(
+                key: Key('memo-detail-back-button'),
+              ),
+              title: Text(context.strings.get('memo')),
+            ),
+            body: const Center(child: CircularProgressIndicator()),
+          ),
           error: (_, _) => Scaffold(
-            appBar: AppBar(title: Text(context.strings.get('memo'))),
+            appBar: AppBar(
+              leading: const RecordDetailBackButton(
+                key: Key('memo-detail-back-button'),
+              ),
+              title: Text(context.strings.get('memo')),
+            ),
             body: Center(child: Text(context.strings.get('loadError'))),
           ),
         );
@@ -37,6 +50,9 @@ class _MemoDetail extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
+        leading: const RecordDetailBackButton(
+          key: Key('memo-detail-back-button'),
+        ),
         title: Text(context.strings.get('memo')),
         actions: [
           IconButton(
@@ -137,7 +153,12 @@ class _MissingDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(context.strings.get('memo'))),
+    appBar: AppBar(
+      leading: const RecordDetailBackButton(
+        key: Key('memo-detail-back-button'),
+      ),
+      title: Text(context.strings.get('memo')),
+    ),
     body: Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,

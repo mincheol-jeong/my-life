@@ -1,3 +1,5 @@
+import 'package:my_life/features/record/application/local_date_provider.dart';
+
 import 'dart:async';
 
 import 'package:drift/drift.dart';
@@ -26,7 +28,7 @@ void main() {
       ProviderScope(
         overrides: [
           appDatabaseProvider.overrideWithValue(database),
-          homeClockProvider.overrideWithValue(() => DateTime(2026, 10, 5)),
+          localClockProvider.overrideWithValue(() => DateTime(2026, 10, 5)),
         ],
         child: const MyLifeApp(),
       ),
@@ -92,7 +94,7 @@ void main() {
       ProviderScope(
         overrides: [
           appDatabaseProvider.overrideWithValue(database),
-          homeClockProvider.overrideWithValue(() => DateTime(2026, 10, 5)),
+          localClockProvider.overrideWithValue(() => DateTime(2026, 10, 5)),
           photoPathProvider.overrideWith((ref, path) async => '/missing/$path'),
         ],
         child: const MyLifeApp(),
@@ -116,7 +118,7 @@ void main() {
       await tester.tap(row);
       await tester.pumpAndSettle();
       expect(find.byKey(Key('${pair.$2}-detail-title')), findsOneWidget);
-      await tester.tap(find.byType(BackButton));
+      await tester.tap(find.byKey(Key('${pair.$2}-detail-back-button')));
       await tester.pumpAndSettle();
     }
     final thumbnail = find.byKey(const Key('home-photo-PHOTO'));
@@ -124,7 +126,7 @@ void main() {
     await tester.tap(thumbnail);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('photo-detail-title')), findsOneWidget);
-    await tester.tap(find.byType(BackButton));
+    await tester.tap(find.byKey(const Key('photo-detail-back-button')));
     await tester.pumpAndSettle();
     await (database.update(database.records)
           ..where((r) => r.id.equals('EXPENSE')))
@@ -147,7 +149,7 @@ void main() {
         ProviderScope(
           overrides: [
             appDatabaseProvider.overrideWithValue(database),
-            homeClockProvider.overrideWithValue(() => DateTime(2026, 10, 5)),
+            localClockProvider.overrideWithValue(() => DateTime(2026, 10, 5)),
             homeRecentRecordsProvider.overrideWith((ref) {
               attempts++;
               return attempts == 1
@@ -184,7 +186,7 @@ void main() {
       ProviderScope(
         overrides: [
           appDatabaseProvider.overrideWithValue(database),
-          homeClockProvider.overrideWithValue(() => DateTime(2026, 10, 5)),
+          localClockProvider.overrideWithValue(() => DateTime(2026, 10, 5)),
           homeRecentRecordsProvider.overrideWith((ref) => records.stream),
         ],
         child: const MyLifeApp(),
@@ -233,7 +235,7 @@ void main() {
       ProviderScope(
         overrides: [
           appDatabaseProvider.overrideWithValue(database),
-          homeClockProvider.overrideWithValue(() => now),
+          localClockProvider.overrideWithValue(() => now),
         ],
         child: const MyLifeApp(),
       ),
@@ -253,13 +255,13 @@ void main() {
   testWidgets('local day provider advances at midnight', (tester) async {
     var now = DateTime(2026, 12, 31, 23, 59, 59);
     final container = ProviderContainer(
-      overrides: [homeClockProvider.overrideWithValue(() => now)],
+      overrides: [localClockProvider.overrideWithValue(() => now)],
     );
-    final listener = container.listen(homeTodayProvider, (_, _) {});
-    expect(container.read(homeTodayProvider), LocalDate(2026, 12, 31));
+    final listener = container.listen(todayProvider, (_, _) {});
+    expect(container.read(todayProvider), LocalDate(2026, 12, 31));
     now = DateTime(2027, 1, 1);
     await tester.pump(const Duration(seconds: 1));
-    expect(container.read(homeTodayProvider), LocalDate(2027, 1, 1));
+    expect(container.read(todayProvider), LocalDate(2027, 1, 1));
     listener.close();
     container.dispose();
   });

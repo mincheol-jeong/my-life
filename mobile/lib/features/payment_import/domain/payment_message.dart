@@ -21,6 +21,8 @@ class PaymentMessageParser {
 
   ExpenseDraft? parse(PaymentMessage message) {
     final text = message.text;
+    // Never strip a sign and reinterpret a negative/ambiguous amount as spending.
+    if (RegExp(r'[-−﹣－+]\s*\d[\d,]*\s*원').hasMatch(text)) return null;
     if (RegExp(
       r'취소|환불|충전|입금|이체|결제예정|결제 예정|청구|캐시백|적립|인증번호|OTP',
       caseSensitive: false,

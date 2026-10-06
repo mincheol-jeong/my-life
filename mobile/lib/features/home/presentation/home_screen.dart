@@ -1,3 +1,5 @@
+import 'package:my_life/shared/formatting/display_formatters.dart';
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -5,42 +7,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_life/core/localization/app_strings.dart';
 import 'package:my_life/features/home/application/home_providers.dart';
+import 'package:my_life/features/record/application/local_date_provider.dart';
 import 'package:my_life/features/photo/application/photo_providers.dart';
 import 'package:my_life/features/record/domain/life_record.dart';
 import 'package:my_life/features/record/domain/local_date.dart';
 import 'package:my_life/features/timeline/domain/timeline_entry.dart';
-import 'package:my_life/features/timeline/presentation/timeline_entry_labels.dart';
+import 'package:my_life/features/record/presentation/record_entry_labels.dart';
 
-class HomeScreen extends ConsumerStatefulWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  ConsumerState<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends ConsumerState<HomeScreen>
-    with WidgetsBindingObserver {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) ref.invalidate(homeTodayProvider);
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final strings = context.strings;
-    final today = ref.watch(homeTodayProvider);
+    final today = ref.watch(todayProvider);
     final recent = ref.watch(homeRecentRecordsProvider);
     final expense = ref.watch(homeMonthlyExpenseProvider);
     final photos = ref.watch(homeRecentPhotosProvider);
@@ -211,10 +191,10 @@ class _PhotoPreview extends ConsumerWidget {
       button: true,
       child: InkWell(
         key: Key('home-photo-${entry.record.id}'),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         onTap: () => context.push(recordDetailPath(entry.record)),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           child: SizedBox.square(
             dimension: 104,
             child: path.when(

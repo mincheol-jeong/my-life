@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'dart:isolate';
 import 'dart:typed_data';
 
@@ -8,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 typedef AppDirectoryLoader = Future<Directory> Function();
+typedef PhotoFileCopier = Future<void> Function(File source, File target);
 
 class PreparedPhotoFile {
   const PreparedPhotoFile({
@@ -26,10 +28,18 @@ class PreparedPhotoFile {
 }
 
 class PhotoStorage {
-  PhotoStorage({AppDirectoryLoader? directoryLoader})
-    : _directoryLoader = directoryLoader ?? getApplicationDocumentsDirectory;
+  PhotoStorage({
+    AppDirectoryLoader? directoryLoader,
+    PhotoFileCopier? fileCopier,
+  }) : _directoryLoader = directoryLoader ?? getApplicationDocumentsDirectory,
+       _fileCopier =
+           fileCopier ??
+           ((source, target) async {
+             await source.copy(target.path);
+           });
 
   final AppDirectoryLoader _directoryLoader;
+  final PhotoFileCopier _fileCopier;
 
   Future<List<PreparedPhotoFile>> preparePhotos({
     required String recordId,
@@ -66,7 +76,7 @@ class PhotoStorage {
           '$id$safeExtension',
         );
         final original = File(path.join(root.path, originalRelative));
-        await source.copy(original.path);
+        await _fileCopier(source, original);
 
         String? thumbnailRelative;
         int? width;
@@ -107,7 +117,7 @@ class PhotoStorage {
 
   Future<String> absolutePath(String relativePath) async {
     final root = await _rootDirectory();
-    return path.join(root.path, relativePath);
+    return _managedPath(root, relativePath);
   }
 
   Future<StagedPhotoDeletion> stageDeletion(
@@ -119,13 +129,22 @@ class PhotoStorage {
     await trash.create(recursive: true);
     final moved = <_MovedFile>[];
     try {
+      final planned = <Map<String, String>>[];
       var index = 0;
-      for (final relativePath in relativePaths.whereType<String>()) {
-        final original = File(path.join(root.path, relativePath));
+      for (final relativePath in relativePaths.whereType<String>().toSet()) {
+        final original = File(_managedPath(root, relativePath));
         if (!await original.exists()) continue;
-        final staged = File(
-          path.join(trash.path, '${index++}_${path.basename(original.path)}'),
-        );
+        planned.add({
+          'original': relativePath,
+          'staged': '${index++}_${path.basename(original.path)}',
+        });
+      }
+      // Persist all intentions before the first rename; recovery uses current DB references.
+      await File(path.join(trash.path, 'manifest.json'))
+          .writeAsString(jsonEncode(planned), flush: true);
+      for (final entry in planned) {
+        final original = File(_managedPath(root, entry['original']!));
+        final staged = File(path.join(trash.path, entry['staged']!));
         await original.rename(staged.path);
         moved.add(_MovedFile(original: original, staged: staged));
       }
@@ -139,8 +158,78 @@ class PhotoStorage {
 
   Future<void> deleteRecordFiles(String recordId) async {
     final root = await _rootDirectory();
-    final directory = Directory(path.join(root.path, 'records', recordId));
+    if (recordId.isEmpty ||
+        path.basename(recordId) != recordId ||
+        recordId == '.' ||
+        recordId == '..') {
+      throw ArgumentError('Invalid record storage identifier');
+    }
+    final directory = Directory(
+      _managedPath(root, path.join('records', recordId)),
+    );
     if (await directory.exists()) await directory.delete(recursive: true);
+  }
+
+  /// Run once before photo access/writes, not concurrently with new file operations.
+  Future<void> recoverInterruptedOperations({
+    required Set<String> activePaths,
+    required Set<String> activeRecordIds,
+  }) async {
+    final root = await _rootDirectory();
+    final trashRoot = Directory(path.join(root.path, '.trash'));
+    if (await trashRoot.exists()) {
+      await for (final entity in trashRoot.list(followLinks: false)) {
+        if (entity is! Directory) continue;
+        final manifest = File(path.join(entity.path, 'manifest.json'));
+        // Legacy/unrecognised staging directories are preserved, never guessed away.
+        if (!await manifest.exists()) continue;
+        final entries =
+            jsonDecode(await manifest.readAsString()) as List<dynamic>;
+        for (final value in entries) {
+          final entry = Map<String, dynamic>.from(value as Map);
+          final relative = entry['original'] as String;
+          final stagedName = entry['staged'] as String;
+          if (path.basename(stagedName) != stagedName ||
+              stagedName == '.' ||
+              stagedName == '..') {
+            throw const FormatException('Invalid staged file path');
+          }
+          final original = File(_managedPath(root, relative));
+          final staged = File(path.join(entity.path, stagedName));
+          if (!await staged.exists()) continue;
+          if (activePaths.contains(relative)) {
+            if (await original.exists()) {
+              throw const FileSystemException(
+                'Recovery would overwrite an existing photo',
+              );
+            }
+            await original.parent.create(recursive: true);
+            await staged.rename(original.path);
+          } else {
+            await staged.delete();
+          }
+        }
+        await entity.delete(recursive: true);
+      }
+    }
+    final recordsRoot = Directory(path.join(root.path, 'records'));
+    if (await recordsRoot.exists()) {
+      await for (final entity in recordsRoot.list(followLinks: false)) {
+        if (entity is Directory &&
+            !activeRecordIds.contains(path.basename(entity.path))) {
+          // Only app-owned copies of a never-committed or deleted Record are removed.
+          await entity.delete(recursive: true);
+        }
+      }
+    }
+  }
+
+  String _managedPath(Directory root, String relative) {
+    final target = path.normalize(path.join(root.path, relative));
+    if (path.isAbsolute(relative) || !path.isWithin(root.path, target)) {
+      throw ArgumentError('Path must stay inside app photo storage');
+    }
+    return target;
   }
 
   Future<Directory> _rootDirectory() async {

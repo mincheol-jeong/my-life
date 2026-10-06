@@ -191,6 +191,8 @@ Primary/unique constraint가 만드는 index 외에 다음 query index를 사용
 
 Finance query는 `expenses`와 active `records`를 join하고 `records.event_date`로 월/일 범위를 제한합니다. 실제 query plan을 test/profile한 뒤 불필요하거나 중복된 index를 추가하지 않습니다.
 
+Phase 7은 선택한 월의 `[월 시작, 다음 월 시작)` 범위에서 `event_date, category` GROUP BY와 INTEGER SUM을 사용합니다. 같은 query 결과에서 월 총액과 카테고리/일별 합계를 구성하므로 조회 시점 차이에 따른 합계 불일치를 피합니다. `type = EXPENSE`, `deleted_at IS NULL`을 적용하며 미확인 payment mapping은 join하지 않습니다. schemaVersion은 6으로 유지합니다.
+
 ## 11. Delete Policy
 
 V1 MVP의 Record 삭제는 다음 transaction으로 처리합니다.
@@ -206,16 +208,20 @@ V1 MVP에는 Trash, Restore, background purge가 없습니다. 일반 Record와 
 
 ## 12. Photo File Policy
 
+- 동일 Photo Record의 수정·개별/전체 삭제는 Repository에서 직렬화합니다. 개별 삭제 transaction 안에서 active Record와 남은 사진 수를 재검증해 빈 active Photo Record를 만들지 않습니다.
 - Camera/Gallery 결과의 임시 URI를 DB에 직접 저장하지 않습니다.
 - 앱의 영구 private storage에 복사하고 앱 storage root 기준 relative path를 저장합니다.
 - DB insert 전에 파일 복사를 완료합니다.
 - DB transaction 실패 시 이번 작업에서 생성한 파일을 정리합니다.
 - 파일 복사 실패 시 Record와 photo row를 저장하지 않습니다.
 - 앱 storage 위치가 바뀌어도 relative path를 새 root와 결합할 수 있어야 합니다.
-- 개별 사진 삭제는 metadata row를 삭제한 뒤 기억해 둔 relative path의 앱 관리 파일을 삭제합니다.
+- 개별 사진 삭제는 앱 관리 파일을 임시 영역에 staging하고 metadata row 삭제 transaction 성공 후 파일 삭제를 확정합니다. transaction 실패 시 파일을 복원합니다.
 - 파일 삭제가 실패하면 사용자에게 실패를 알리고 Repository가 metadata 복구 또는 재시도 가능한 일관된 상태를 유지합니다.
 - 마지막 사진 삭제는 사용자 확인 후 Photo Record의 `deleted_at` 설정, 모든 photo metadata 삭제, 앱 관리 파일 삭제를 하나의 Repository operation으로 조정합니다.
 - Gallery에서 가져온 사용자 원본은 절대 삭제하지 않습니다.
+- 파일 삭제 전 앱 photo root의 `.trash/<token>/manifest.json`에 이동 의도를 flush한 뒤 rename합니다. 다음 앱 실행의 첫 사진 접근/쓰기에서 active DB path를 기준으로 참조 파일은 원위치로 복구하고, 삭제가 DB에 반영된 staged 파일은 정리합니다. 이는 사용자용 Trash/Restore가 아니라 중단 작업 복구입니다.
+- DB에 없는 app-managed Record directory는 중단된 생성의 잔여물로 정리합니다. 현재 앱은 단일 PhotoRepository 인스턴스로 초기 복구를 직렬화합니다.
+- manifest가 없거나 알 수 없는 기존 `.trash` 폴더는 추측으로 삭제하지 않습니다. 손상된 manifest/기존 파일과 충돌하면 자동 덮어쓰기하지 않고 실패를 반환합니다. 모든 관리 경로는 app photo root 밖으로 나가지 못하도록 제한합니다.
 
 ## 13. Migration and `schemaVersion`
 

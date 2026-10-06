@@ -20,6 +20,16 @@ final calendarSyncControllerProvider =
     AsyncNotifierProvider<CalendarSyncController, CalendarSyncSettings?>(
       CalendarSyncController.new,
     );
+
+final calendarSyncSettingsWriterProvider =
+    Provider<Future<bool> Function(String?)>((ref) {
+      return (encoded) async {
+        final preferences = await SharedPreferences.getInstance();
+        return encoded == null
+            ? preferences.remove('calendar_sync_settings')
+            : preferences.setString('calendar_sync_settings', encoded);
+      };
+    });
 final calendarSyncResultProvider =
     NotifierProvider<
       CalendarSyncResultController,
@@ -36,6 +46,7 @@ class CalendarSyncResultController
 class CalendarSyncController extends AsyncNotifier<CalendarSyncSettings?> {
   static const _key = 'calendar_sync_settings';
   bool _running = false;
+  bool _configuring = false;
   DateTime? _lastRun;
 
   @override
@@ -50,39 +61,60 @@ class CalendarSyncController extends AsyncNotifier<CalendarSyncSettings?> {
     );
   }
 
-  Future<void> configure(CalendarSyncSettings? settings) async {
-    final preferences = await SharedPreferences.getInstance();
-    if (settings == null) {
-      await preferences.remove(_key);
-    } else {
-      await preferences.setString(
-        _key,
-        jsonEncode({
-          'ids': settings.ids.toList(),
-          'start': settings.start.toIso8601String(),
-          'end': settings.end.toIso8601String(),
-        }),
+  Future<bool> configure(CalendarSyncSettings? settings) async {
+    if (_configuring) return false;
+    _configuring = true;
+    final previous = state.value;
+    state = const AsyncLoading();
+    try {
+      final saved = await ref.read(calendarSyncSettingsWriterProvider)(
+        settings == null
+            ? null
+            : jsonEncode({
+                'ids': settings.ids.toList(),
+                'start': settings.start.toIso8601String(),
+                'end': settings.end.toIso8601String(),
+              }),
       );
+      if (!saved) throw StateError('Calendar settings could not be saved');
+      if (!ref.mounted) return false;
+      state = AsyncData(settings);
+      _lastRun = null;
+      ref.read(calendarSyncResultProvider.notifier).set(const AsyncData(null));
+    } catch (error, stack) {
+      if (ref.mounted) {
+        state = AsyncData(previous);
+        ref
+            .read(calendarSyncResultProvider.notifier)
+            .set(AsyncError(error, stack));
+      }
+      return false;
+    } finally {
+      _configuring = false;
     }
-    state = AsyncData(settings);
-    _lastRun = null;
     if (settings != null) await synchronize(force: true);
+    return true;
   }
 
   Future<void> synchronize({bool force = false}) async {
-    if (_running) return;
-    final settings = await future;
-    if (settings == null || settings.ids.isEmpty) return;
-    final now = DateTime.now();
-    if (!force &&
-        _lastRun != null &&
-        now.difference(_lastRun!) < const Duration(minutes: 5)) {
-      return;
-    }
+    if (_running || _configuring) return;
     _running = true;
-    final result = ref.read(calendarSyncResultProvider.notifier);
-    result.set(const AsyncLoading());
     try {
+      final settings = await future;
+      if (!ref.mounted ||
+          _configuring ||
+          settings == null ||
+          settings.ids.isEmpty) {
+        return;
+      }
+      final now = DateTime.now();
+      if (!force &&
+          _lastRun != null &&
+          now.difference(_lastRun!) < const Duration(minutes: 5)) {
+        return;
+      }
+      final result = ref.read(calendarSyncResultProvider.notifier);
+      result.set(const AsyncLoading());
       final device = ref.read(calendarDeviceServiceProvider);
       if (await device.checkAccess() != CalendarAccessState.granted) {
         throw StateError('Calendar permission missing');
@@ -96,7 +128,9 @@ class CalendarSyncController extends AsyncNotifier<CalendarSyncSettings?> {
         calendarIds: ids,
       );
       // Settings may have been disabled or changed while OS reads were pending.
-      if (!identical(state.value, settings)) return;
+      if (!ref.mounted || _configuring || !identical(state.value, settings)) {
+        return;
+      }
       final synced = await ref
           .read(calendarImportRepositoryProvider)
           .synchronize(
@@ -105,10 +139,17 @@ class CalendarSyncController extends AsyncNotifier<CalendarSyncSettings?> {
             startDate: _date(settings.start),
             endDate: _date(settings.end),
           );
+      if (!ref.mounted || _configuring || !identical(state.value, settings)) {
+        return;
+      }
       _lastRun = now;
       result.set(AsyncData(synced));
     } catch (error, stack) {
-      result.set(AsyncError(error, stack));
+      if (ref.mounted) {
+        ref
+            .read(calendarSyncResultProvider.notifier)
+            .set(AsyncError(error, stack));
+      }
     } finally {
       _running = false;
     }

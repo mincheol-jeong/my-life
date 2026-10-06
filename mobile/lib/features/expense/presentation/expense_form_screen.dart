@@ -1,3 +1,5 @@
+import 'package:my_life/features/record/presentation/record_form_widgets.dart';
+import 'package:my_life/shared/formatting/display_formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -122,7 +124,7 @@ class _ExpenseEditorState extends ConsumerState<_ExpenseEditor> {
       appBar: AppBar(
         leading: BackButton(
           key: const Key('expense-form-back-button'),
-          onPressed: () => _closeForm(context),
+          onPressed: () => closeRecordForm(context),
         ),
         title: Text(
           context.strings.get(_isEditing ? 'expenseEdit' : 'expense'),
@@ -149,7 +151,6 @@ class _ExpenseEditorState extends ConsumerState<_ExpenseEditor> {
                 labelText: context.strings.get('amount'),
                 prefixText: '₩ ',
                 suffixText: context.strings.get('won'),
-                border: const OutlineInputBorder(),
               ),
             ),
             if (_validationMessage != null) ...[
@@ -163,10 +164,10 @@ class _ExpenseEditorState extends ConsumerState<_ExpenseEditor> {
             const SizedBox(height: 16),
             DropdownButtonFormField<ExpenseCategory>(
               key: const Key('expense-category-field'),
+              isExpanded: true,
               initialValue: _category,
               decoration: InputDecoration(
                 labelText: context.strings.get('category'),
-                border: const OutlineInputBorder(),
               ),
               items: ExpenseCategory.values
                   .map(
@@ -185,10 +186,10 @@ class _ExpenseEditorState extends ConsumerState<_ExpenseEditor> {
             const SizedBox(height: 16),
             DropdownButtonFormField<PaymentMethod>(
               key: const Key('expense-payment-field'),
+              isExpanded: true,
               initialValue: _paymentMethod,
               decoration: InputDecoration(
                 labelText: context.strings.get('paymentMethod'),
-                border: const OutlineInputBorder(),
               ),
               items: PaymentMethod.values
                   .map(
@@ -211,7 +212,6 @@ class _ExpenseEditorState extends ConsumerState<_ExpenseEditor> {
               textInputAction: TextInputAction.next,
               decoration: InputDecoration(
                 labelText: context.strings.get('memoOptional'),
-                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
@@ -221,22 +221,21 @@ class _ExpenseEditorState extends ConsumerState<_ExpenseEditor> {
               textInputAction: TextInputAction.done,
               decoration: InputDecoration(
                 labelText: context.strings.get('titleOptional'),
-                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 12),
-            _ValueTile(
+            RecordValueTile(
               icon: Icons.calendar_today_outlined,
               label: context.strings.get('date'),
-              value: _formatDate(_date),
+              value: formatRecordDate(_date),
               onTap: _pickDate,
             ),
-            _ValueTile(
+            RecordValueTile(
               icon: Icons.schedule_outlined,
               label: context.strings.get('time'),
               value: _timeMinutes == null
                   ? context.strings.get('notSelected')
-                  : _formatTime(_timeMinutes!),
+                  : formatRecordTime(_timeMinutes!),
               onTap: _pickTime,
               onClear: _timeMinutes == null
                   ? null
@@ -336,46 +335,6 @@ class _ExpenseEditorState extends ConsumerState<_ExpenseEditor> {
   }
 }
 
-void _closeForm(BuildContext context) {
-  if (context.canPop()) {
-    context.pop();
-  } else {
-    context.go('/');
-  }
-}
-
-class _ValueTile extends StatelessWidget {
-  const _ValueTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.onTap,
-    this.onClear,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final VoidCallback onTap;
-  final VoidCallback? onClear;
-
-  @override
-  Widget build(BuildContext context) => ListTile(
-    contentPadding: EdgeInsets.zero,
-    leading: Icon(icon),
-    title: Text(label),
-    subtitle: Text(value),
-    onTap: onTap,
-    trailing: onClear == null
-        ? const Icon(Icons.chevron_right_rounded)
-        : IconButton(
-            tooltip: context.strings.get('clearSelection'),
-            onPressed: onClear,
-            icon: const Icon(Icons.close_rounded),
-          ),
-  );
-}
-
 class _MissingExpenseScreen extends StatelessWidget {
   const _MissingExpenseScreen();
 
@@ -394,13 +353,4 @@ class _LoadErrorScreen extends StatelessWidget {
     appBar: AppBar(title: Text(context.strings.get('expense'))),
     body: Center(child: Text(context.strings.get('loadError'))),
   );
-}
-
-String _formatDate(LocalDate date) =>
-    '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
-
-String _formatTime(int minutes) {
-  final hour = (minutes ~/ 60).toString().padLeft(2, '0');
-  final minute = (minutes % 60).toString().padLeft(2, '0');
-  return '$hour:$minute';
 }

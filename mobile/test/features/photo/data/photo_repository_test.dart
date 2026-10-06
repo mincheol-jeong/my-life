@@ -51,6 +51,31 @@ void main() {
     return file;
   }
 
+  test('concurrent deletes cannot remove the last photo and queue survives rejection', () async {
+    final first = await source('first', 100);
+    final second = await source('second', 150);
+    final record = await repository.create(draft(), [first.path, second.path]);
+    final outcomes = await Future.wait([
+      for (final photo in record.photos)
+        repository
+            .deletePhoto(record.record.id, photo.id)
+            .then<Object?>((_) => null, onError: (Object error) => error),
+    ]);
+    expect(outcomes.where((value) => value == null), hasLength(1));
+    expect(outcomes.whereType<LastPhotoDeletionException>(), hasLength(1));
+    final remaining = (await repository.getById(record.record.id))!;
+    expect(remaining.photos, hasLength(1));
+    expect(
+      await File(await storage.absolutePath(remaining.photos.single.filePath))
+          .exists(),
+      isTrue,
+    );
+    expect(await first.exists(), isTrue);
+    expect(await second.exists(), isTrue);
+    await repository.deleteRecord(record.record.id);
+    expect(await repository.getById(record.record.id), isNull);
+  });
+
   test(
     'copies originals, creates thumbnails, and stores ordered rows',
     () async {
@@ -82,6 +107,166 @@ void main() {
       expect(await second.exists(), isTrue);
     },
   );
+
+  test(
+    'interrupted deletion before DB commit restores originals on next access',
+    () async {
+      final first = await source('first', 100);
+      final second = await source('second', 150);
+      final record = await repository.create(draft(), [
+        first.path,
+        second.path,
+      ]);
+      final photo = record.photos.first;
+      await storage.stageDeletion([photo.filePath, photo.thumbnailPath]);
+      expect(
+        await File(await storage.absolutePath(photo.filePath)).exists(),
+        false,
+      );
+      repository = PhotoRepository(database, storage);
+      await repository.recoverInterruptedOperations();
+      expect(
+        await File(await storage.absolutePath(photo.filePath)).exists(),
+        true,
+      );
+      expect(
+        await File(await storage.absolutePath(photo.thumbnailPath!)).exists(),
+        true,
+      );
+      expect((await repository.getById(record.record.id))!.photos.length, 2);
+      await repository.recoverInterruptedOperations();
+      expect(await first.exists(), true);
+    },
+  );
+
+  test('interrupted deletion after DB commit purges only app copies', () async {
+    final original = await source('first', 100);
+    final record = await repository.create(draft(), [original.path]);
+    await storage.stageDeletion(
+      record.photos.expand((p) => [p.filePath, p.thumbnailPath]),
+    );
+    await database.transaction(() async {
+      await (database.update(database.records)
+            ..where((r) => r.id.equals(record.record.id)))
+          .write(const RecordsCompanion(deletedAt: Value(1)));
+      await (database.delete(
+        database.photos,
+      )..where((p) => p.recordId.equals(record.record.id))).go();
+    });
+    repository = PhotoRepository(database, storage);
+    await repository.recoverInterruptedOperations();
+    expect(
+      await Directory(
+        '${directory.path}/my_life/photos/records/${record.record.id}',
+      ).exists(),
+      false,
+    );
+    expect(
+      await Directory('${directory.path}/my_life/photos/.trash')
+          .list()
+          .toList(),
+      isEmpty,
+    );
+    expect(await original.exists(), true);
+  });
+
+  test(
+    'interrupted creation removes an uncommitted directory, not active photos',
+    () async {
+      final original = await source('first', 100);
+      final record = await repository.create(draft(), [original.path]);
+      await storage.preparePhotos(
+        recordId: 'not-committed',
+        photoIds: ['orphan'],
+        sourcePaths: [original.path],
+      );
+      repository = PhotoRepository(database, storage);
+      await repository.recoverInterruptedOperations();
+      expect(
+        await Directory(
+          '${directory.path}/my_life/photos/records/not-committed',
+        ).exists(),
+        false,
+      );
+      expect(
+        await File(await storage.absolutePath(record.photos.single.filePath))
+            .exists(),
+        true,
+      );
+      expect(await original.exists(), true);
+    },
+  );
+
+  test(
+    'simulated disk-full copy rolls back partial managed files and DB writes',
+    () async {
+      final original = await source('first', 100);
+      storage = PhotoStorage(
+        directoryLoader: () async => directory,
+        fileCopier: (source, target) async {
+          await target.writeAsBytes([1, 2, 3]);
+          throw const FileSystemException('No space left on device');
+        },
+      );
+      repository = PhotoRepository(
+        database,
+        storage,
+        idGenerator: () => ids.removeAt(0),
+      );
+      await expectLater(
+        repository.create(draft(), [original.path]),
+        throwsA(isA<FileSystemException>()),
+      );
+      expect(await database.select(database.records).get(), isEmpty);
+      expect(
+        await Directory('${directory.path}/my_life/photos/records/record-1')
+            .exists(),
+        false,
+      );
+      expect(await original.exists(), true);
+    },
+  );
+
+  test(
+    'failed delete transaction restores moved files and all photo rows',
+    () async {
+      final first = await source('first', 100);
+      final second = await source('second', 150);
+      final record = await repository.create(draft(), [
+        first.path,
+        second.path,
+      ]);
+      await database.customStatement(
+        "CREATE TRIGGER reject_photo_delete BEFORE DELETE ON photos BEGIN SELECT RAISE(ABORT, 'simulated DB failure'); END",
+      );
+      await expectLater(
+        repository.deletePhoto(record.record.id, record.photos.first.id),
+        throwsA(anything),
+      );
+      expect((await repository.getById(record.record.id))!.photos.length, 2);
+      for (final photo in record.photos) {
+        expect(
+          await File(await storage.absolutePath(photo.filePath)).exists(),
+          true,
+        );
+      }
+    },
+  );
+
+  test('storage rejects paths outside its managed root', () async {
+    await expectLater(
+      storage.absolutePath('../../outside.jpg'),
+      throwsArgumentError,
+    );
+    await expectLater(
+      storage.deleteRecordFiles('../outside'),
+      throwsArgumentError,
+    );
+    await expectLater(
+      storage.stageDeletion(['/absolute/outside.jpg']),
+      throwsArgumentError,
+    );
+  });
 
   test('requires at least one photo without writing a record', () async {
     await expectLater(

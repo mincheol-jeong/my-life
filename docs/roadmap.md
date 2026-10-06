@@ -223,7 +223,7 @@ Current verification:
 
 ## 9. Phase 7 — Finance
 
-Status: `NEXT`
+Status: `DONE`
 
 Tasks:
 
@@ -239,9 +239,18 @@ Completion:
 
 - Expense 저장/수정/삭제가 Timeline, Home, Finance에 일관되게 반영됩니다.
 
+Current verification:
+
+- 선택한 local month의 active Expense 날짜·카테고리별 SUM query와 일관된 월 총액 구현
+- 이전/다음 월, 이번 달 복귀, 기본 월 자정/앱 복귀 갱신과 명시적 선택 유지 구현
+- empty/loading/error·재시도, 한국어/English, 작은 화면/큰 글자 흐름 검증
+- 월 경계·연말·윤년·정수 금액·삭제 제외·미확인 초안 제외·수정 stream과 Home/Timeline 일치 검증
+- 신규 Finance 테스트 17개, 전체 96 tests와 format/analyze 통과
+- Android debug APK와 iOS simulator build 통과; schema/package 변경 없음
+
 ## 10. Phase 8 — Me
 
-Status: `TODO`
+Status: `DONE`
 
 Tasks:
 
@@ -256,9 +265,28 @@ Completion:
 - 실제 app version을 표시합니다.
 - Open Source Licenses 화면에 접근할 수 있습니다.
 
+Current verification:
+
+- Android/iOS native version/build 조회와 Me loading/error/retry 구현
+- Flutter LicensePage/실제 라이선스 본문 접근과 로컬 보관 경고 구현
+- 언어 저장 실패 처리와 이전 선택 복원, 좁은 화면/큰 글자 테스트 통과
+- 신규 Me 테스트 6개 통과; 새 package/schema 없음
+
 ## 11. V1 MVP Stabilization
 
-Status: `TODO`
+Status: `IN PROGRESS — DEVICE / SIGNED RELEASE GATES PENDING`
+
+진행 내용:
+
+- 사진 삭제 journal과 다음 사진 접근 시 중단된 작업 복구; DB에 없는 앱 전용 생성 잔여물 정리
+- 사진 복사 disk-full 모사, 삭제 transaction 실패 복원, DB commit 전/후 중단 모사와 경로 보호 테스트
+- Memo/Expense/Photo의 320px·글자 2배·키보드 inset 입력/저장 접근 테스트
+- Android release의 debug 서명 fallback 제거, 인증서 없을 때 명시적 실패와 로컬 설정 예제
+- 공통 입력/formatter·날짜 갱신 정리, 미사용 코드 제거, Timeline lazy widget build
+- 화면 종료/사진 동시 삭제·지연 metadata/캘린더 설정 저장 실패/부호 금액 회귀 검증
+- 전체 자동화 테스트 130개 및 `flutter analyze` 통과
+- Android debug/iOS simulator build 통과; 인증서 없는 Android release 차단 확인
+- 회사 실기기/서명/스토어 gate는 [release.md](release.md)에 `NOT TESTED`로 유지
 
 - 전체 사용자 flow 회귀 test
 - Migration과 persistence 검증
@@ -287,6 +315,8 @@ Status: `TODO`
 
 이를 위한 UI, table, API, service를 미리 만들지 않습니다.
 
+승인된 후속 **계획**: [회원 정보 관리](accounts.md), [수익화](monetization.md). V1 안정화 → 수동 Backup/Restore → 회원/소유권·삭제 → 필요한 경우 Cloud → 상품/권한 구현을 제안하며, 서버·결제 구현은 별도 승인이 필요합니다. 실제 인증/가격/무료 경계는 미결정입니다.
+
 ## 13. Quality Gate
 
 각 Phase 완료 후 가능한 범위에서 실행합니다.
@@ -303,5 +333,5 @@ flutter test
 
 - 구현과 문서를 항상 일치시킵니다.
 - 의미 있는 변경을 CHANGELOG의 `Unreleased`에 기록합니다.
-- 모든 변경마다 VERSION을 올리지 않습니다.
+- 사용자 승인으로 커밋할 때마다 기본 PATCH와 Flutter build number를 올리고 VERSION/README를 맞춥니다. MINOR/MAJOR 변경은 별도 지시에 따릅니다.
 - 실제 검증된 명령만 README에 기록합니다.

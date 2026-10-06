@@ -37,7 +37,11 @@ class PhotoMetadataReader {
     } catch (_) {
       return const PhotoMetadataSuggestion();
     } finally {
-      await exif?.close();
+      try {
+        await exif?.close();
+      } catch (_) {
+        // Metadata is optional; native cleanup must not reject the suggestion.
+      }
     }
   }
 

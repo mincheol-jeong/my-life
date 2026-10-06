@@ -12,6 +12,14 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "AppInfoBridge") {
+      FlutterMethodChannel(name: "com.mincheol.mylife/app_info", binaryMessenger: registrar.messenger())
+        .setMethodCallHandler { call, result in
+          guard call.method == "getAppInfo" else { result(FlutterMethodNotImplemented); return }
+          result(["version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
+                  "buildNumber": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""])
+        }
+    }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "PaymentImportBridge") {
       FlutterMethodChannel(name: "com.mincheol.mylife/payment_import", binaryMessenger: registrar.messenger())
         .setMethodCallHandler { call, result in

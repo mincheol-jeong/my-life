@@ -1,3 +1,7 @@
+import 'package:my_life/features/record/presentation/record_form_widgets.dart';
+import 'package:my_life/shared/formatting/display_formatters.dart';
+
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -44,14 +48,17 @@ class _PhotoEditor extends ConsumerStatefulWidget {
 }
 
 class _PhotoEditorState extends ConsumerState<_PhotoEditor> {
-  final _picker = ImagePicker();
   final _selected = <XFile>[];
   late final TextEditingController _titleController;
   late final TextEditingController _placeController;
   late LocalDate _date;
   int? _timeMinutes;
   String? _validationMessage;
-  bool _metadataApplied = false;
+  String? _metadataPhotoPath;
+  int _metadataRequest = 0;
+  bool _dateEdited = false;
+  bool _timeEdited = false;
+  bool _placeEdited = false;
   bool _isReadingMetadata = false;
 
   bool get _isEditing => widget.record != null;
@@ -86,7 +93,7 @@ class _PhotoEditorState extends ConsumerState<_PhotoEditor> {
       appBar: AppBar(
         leading: BackButton(
           key: const Key('photo-form-back-button'),
-          onPressed: () => _closeForm(context),
+          onPressed: () => closeRecordForm(context),
         ),
         title: Text(context.strings.get(_isEditing ? 'photoEdit' : 'photo')),
       ),
@@ -141,7 +148,7 @@ class _PhotoEditorState extends ConsumerState<_PhotoEditor> {
                       key: ValueKey(file.path),
                       contentPadding: EdgeInsets.zero,
                       leading: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(16),
                         child: Image.file(
                           File(file.path),
                           width: 64,
@@ -158,8 +165,12 @@ class _PhotoEditorState extends ConsumerState<_PhotoEditor> {
                       subtitle: Text(context.strings.get('reorderHint')),
                       trailing: IconButton(
                         tooltip: context.strings.get('removeSelection'),
-                        onPressed: () =>
-                            setState(() => _selected.removeAt(index)),
+                        onPressed: isSaving
+                            ? null
+                            : () {
+                                setState(() => _selected.removeAt(index));
+                                unawaited(_suggestFirstPhoto());
+                              },
                         icon: const Icon(Icons.close_rounded),
                       ),
                     );
@@ -190,35 +201,37 @@ class _PhotoEditorState extends ConsumerState<_PhotoEditor> {
               controller: _titleController,
               decoration: InputDecoration(
                 labelText: context.strings.get('titleOptional'),
-                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 12),
-            _ValueTile(
+            RecordValueTile(
               icon: Icons.calendar_today_outlined,
               label: context.strings.get('date'),
-              value: _formatDate(_date),
+              value: formatRecordDate(_date),
               onTap: _pickDate,
             ),
-            _ValueTile(
+            RecordValueTile(
               icon: Icons.schedule_outlined,
               label: context.strings.get('time'),
               value: _timeMinutes == null
                   ? context.strings.get('notSelected')
-                  : _formatTime(_timeMinutes!),
+                  : formatRecordTime(_timeMinutes!),
               onTap: _pickTime,
               onClear: _timeMinutes == null
                   ? null
-                  : () => setState(() => _timeMinutes = null),
+                  : () => setState(() {
+                      _timeEdited = true;
+                      _timeMinutes = null;
+                    }),
             ),
             const SizedBox(height: 8),
             TextField(
               key: const Key('photo-place-field'),
               controller: _placeController,
+              onChanged: (_) => _placeEdited = true,
               decoration: InputDecoration(
                 labelText: context.strings.get('placeOptional'),
                 prefixIcon: const Icon(Icons.place_outlined),
-                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 20),
@@ -243,7 +256,9 @@ class _PhotoEditorState extends ConsumerState<_PhotoEditor> {
 
   Future<void> _pickFromGallery() async {
     try {
-      final files = await _picker.pickMultiImage(requestFullMetadata: true);
+      final files = await ref
+          .read(photoPickerProvider)
+          .pickMultiImage(requestFullMetadata: true);
       if (files.isNotEmpty) await _addSelectedPhotos(files);
     } catch (_) {
       _showPickerError();
@@ -252,10 +267,9 @@ class _PhotoEditorState extends ConsumerState<_PhotoEditor> {
 
   Future<void> _takePhoto() async {
     try {
-      final file = await _picker.pickImage(
-        source: ImageSource.camera,
-        requestFullMetadata: true,
-      );
+      final file = await ref
+          .read(photoPickerProvider)
+          .pickImage(source: ImageSource.camera, requestFullMetadata: true);
       if (file != null) await _addSelectedPhotos([file]);
     } catch (_) {
       _showPickerError();
@@ -274,23 +288,34 @@ class _PhotoEditorState extends ConsumerState<_PhotoEditor> {
   Future<void> _addSelectedPhotos(List<XFile> files) async {
     if (!mounted) return;
     setState(() {
-      _selected.addAll(files);
-      _isReadingMetadata = !_metadataApplied;
+      final paths = _selected.map((file) => file.path).toSet();
+      _selected.addAll(files.where((file) => paths.add(file.path)));
     });
-    if (_metadataApplied) return;
-    _metadataApplied = true;
+    await _suggestFirstPhoto();
+  }
+
+  Future<void> _suggestFirstPhoto() async {
+    if (!mounted) return;
+    final path = _selected.isEmpty ? null : _selected.first.path;
+    if (path == _metadataPhotoPath) return;
+    _metadataPhotoPath = path;
+    final request = ++_metadataRequest;
+    setState(() => _isReadingMetadata = path != null);
+    if (path == null) return;
     final suggestion = await ref
         .read(photoMetadataReaderProvider)
-        .read(files.first.path, locale: Localizations.localeOf(context));
-    if (!mounted) return;
+        .read(path, locale: Localizations.localeOf(context));
+    if (!mounted || request != _metadataRequest) return;
     setState(() {
       _isReadingMetadata = false;
       final capturedAt = suggestion.capturedAt;
       if (capturedAt != null) {
-        _date = LocalDate.fromDateTime(capturedAt);
-        _timeMinutes = capturedAt.hour * 60 + capturedAt.minute;
+        if (!_dateEdited) _date = LocalDate.fromDateTime(capturedAt);
+        if (!_timeEdited) {
+          _timeMinutes = capturedAt.hour * 60 + capturedAt.minute;
+        }
       }
-      if (suggestion.placeName != null) {
+      if (!_placeEdited && suggestion.placeName != null) {
         _placeController.text = suggestion.placeName!;
       }
     });
@@ -309,10 +334,12 @@ class _PhotoEditorState extends ConsumerState<_PhotoEditor> {
   }
 
   void _reorder(int oldIndex, int newIndex) {
+    if (ref.read(photoControllerProvider).isLoading) return;
     setState(() {
       final item = _selected.removeAt(oldIndex);
       _selected.insert(newIndex, item);
     });
+    unawaited(_suggestFirstPhoto());
   }
 
   Future<void> _pickDate() async {
@@ -323,7 +350,10 @@ class _PhotoEditorState extends ConsumerState<_PhotoEditor> {
       lastDate: DateTime(2100),
     );
     if (selected != null && mounted) {
-      setState(() => _date = LocalDate.fromDateTime(selected));
+      setState(() {
+        _dateEdited = true;
+        _date = LocalDate.fromDateTime(selected);
+      });
     }
   }
 
@@ -336,7 +366,10 @@ class _PhotoEditorState extends ConsumerState<_PhotoEditor> {
           : TimeOfDay(hour: current ~/ 60, minute: current % 60),
     );
     if (selected != null && mounted) {
-      setState(() => _timeMinutes = selected.hour * 60 + selected.minute);
+      setState(() {
+        _timeEdited = true;
+        _timeMinutes = selected.hour * 60 + selected.minute;
+      });
     }
   }
 
@@ -351,6 +384,9 @@ class _PhotoEditorState extends ConsumerState<_PhotoEditor> {
       eventTimeMinutes: _timeMinutes,
       placeName: _placeController.text,
     );
+    _metadataRequest++;
+    _metadataPhotoPath = null;
+    _isReadingMetadata = false;
     final controller = ref.read(photoControllerProvider.notifier);
     final record = _isEditing
         ? await controller.saveEdit(widget.record!.record.id, draft)
@@ -367,46 +403,6 @@ class _PhotoEditorState extends ConsumerState<_PhotoEditor> {
       );
     }
   }
-}
-
-void _closeForm(BuildContext context) {
-  if (context.canPop()) {
-    context.pop();
-  } else {
-    context.go('/');
-  }
-}
-
-class _ValueTile extends StatelessWidget {
-  const _ValueTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.onTap,
-    this.onClear,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final VoidCallback onTap;
-  final VoidCallback? onClear;
-
-  @override
-  Widget build(BuildContext context) => ListTile(
-    contentPadding: EdgeInsets.zero,
-    leading: Icon(icon),
-    title: Text(label),
-    subtitle: Text(value),
-    onTap: onTap,
-    trailing: onClear == null
-        ? const Icon(Icons.chevron_right_rounded)
-        : IconButton(
-            tooltip: context.strings.get('clearSelection'),
-            onPressed: onClear,
-            icon: const Icon(Icons.close_rounded),
-          ),
-  );
 }
 
 class _MissingPhotoScreen extends StatelessWidget {
@@ -427,13 +423,4 @@ class _LoadErrorScreen extends StatelessWidget {
     appBar: AppBar(title: Text(context.strings.get('photo'))),
     body: Center(child: Text(context.strings.get('loadError'))),
   );
-}
-
-String _formatDate(LocalDate date) =>
-    '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
-
-String _formatTime(int minutes) {
-  final hour = (minutes ~/ 60).toString().padLeft(2, '0');
-  final minute = (minutes % 60).toString().padLeft(2, '0');
-  return '$hour:$minute';
 }

@@ -1,3 +1,5 @@
+import 'package:my_life/features/record/presentation/record_form_widgets.dart';
+import 'package:my_life/shared/formatting/display_formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -81,7 +83,7 @@ class _MemoEditorState extends ConsumerState<_MemoEditor> {
       appBar: AppBar(
         leading: BackButton(
           key: const Key('memo-form-back-button'),
-          onPressed: () => _closeForm(context),
+          onPressed: () => closeRecordForm(context),
         ),
         title: Text(context.strings.get(_isEditing ? 'memoEdit' : 'memo')),
       ),
@@ -95,7 +97,6 @@ class _MemoEditorState extends ConsumerState<_MemoEditor> {
               textInputAction: TextInputAction.next,
               decoration: InputDecoration(
                 labelText: context.strings.get('titleOptional'),
-                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
@@ -108,7 +109,6 @@ class _MemoEditorState extends ConsumerState<_MemoEditor> {
               decoration: InputDecoration(
                 labelText: context.strings.get('contentOptional'),
                 alignLabelWithHint: true,
-                border: const OutlineInputBorder(),
               ),
             ),
             if (_validationMessage != null) ...[
@@ -120,18 +120,18 @@ class _MemoEditorState extends ConsumerState<_MemoEditor> {
               ),
             ],
             const SizedBox(height: 16),
-            _ValueTile(
+            RecordValueTile(
               icon: Icons.calendar_today_outlined,
               label: context.strings.get('date'),
-              value: _formatDate(_date),
+              value: formatRecordDate(_date),
               onTap: _pickDate,
             ),
-            _ValueTile(
+            RecordValueTile(
               icon: Icons.schedule_outlined,
               label: context.strings.get('time'),
               value: _timeMinutes == null
                   ? context.strings.get('notSelected')
-                  : _formatTime(_timeMinutes!),
+                  : formatRecordTime(_timeMinutes!),
               onTap: _pickTime,
               onClear: _timeMinutes == null
                   ? null
@@ -145,7 +145,6 @@ class _MemoEditorState extends ConsumerState<_MemoEditor> {
               decoration: InputDecoration(
                 labelText: context.strings.get('placeOptional'),
                 prefixIcon: const Icon(Icons.place_outlined),
-                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 28),
@@ -224,48 +223,6 @@ class _MemoEditorState extends ConsumerState<_MemoEditor> {
   }
 }
 
-void _closeForm(BuildContext context) {
-  if (context.canPop()) {
-    context.pop();
-  } else {
-    context.go('/');
-  }
-}
-
-class _ValueTile extends StatelessWidget {
-  const _ValueTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.onTap,
-    this.onClear,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final VoidCallback onTap;
-  final VoidCallback? onClear;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(icon),
-      title: Text(label),
-      subtitle: Text(value),
-      onTap: onTap,
-      trailing: onClear == null
-          ? const Icon(Icons.chevron_right_rounded)
-          : IconButton(
-              tooltip: context.strings.get('clearSelection'),
-              onPressed: onClear,
-              icon: const Icon(Icons.close_rounded),
-            ),
-    );
-  }
-}
-
 class _MissingMemoScreen extends StatelessWidget {
   const _MissingMemoScreen();
 
@@ -284,13 +241,4 @@ class _LoadErrorScreen extends StatelessWidget {
     appBar: AppBar(title: Text(context.strings.get('memo'))),
     body: Center(child: Text(context.strings.get('loadError'))),
   );
-}
-
-String _formatDate(LocalDate date) =>
-    '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
-
-String _formatTime(int minutes) {
-  final hour = (minutes ~/ 60).toString().padLeft(2, '0');
-  final minute = (minutes % 60).toString().padLeft(2, '0');
-  return '$hour:$minute';
 }

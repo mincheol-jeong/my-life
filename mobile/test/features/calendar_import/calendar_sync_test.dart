@@ -1,4 +1,7 @@
 import 'package:drift/native.dart';
+
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_life/core/database/app_database.dart';
@@ -44,6 +47,94 @@ void main() {
     startDate: '2026-10-01',
     endDate: '2026-10-31',
   );
+
+  for (final throwsError in [false, true]) {
+    test(
+      'failed calendar settings write preserves opt-in, reports error and retries (throws=$throwsError)',
+      () async {
+        var fail = false;
+        final device = _FakeCalendar();
+        final container = ProviderContainer(
+          overrides: [
+            appDatabaseProvider.overrideWithValue(database),
+            calendarDeviceServiceProvider.overrideWithValue(device),
+            calendarSyncSettingsWriterProvider.overrideWithValue((
+              encoded,
+            ) async {
+              if (fail) {
+                if (throwsError) throw StateError('storage unavailable');
+                return false;
+              }
+              final preferences = await SharedPreferences.getInstance();
+              return encoded == null
+                  ? preferences.remove('calendar_sync_settings')
+                  : preferences.setString('calendar_sync_settings', encoded);
+            }),
+          ],
+        );
+        addTearDown(container.dispose);
+        await container.read(calendarSyncControllerProvider.future);
+        final controller = container.read(
+          calendarSyncControllerProvider.notifier,
+        );
+        final settings = CalendarSyncSettings(
+          ids: {'personal'},
+          start: DateTime(2026, 10, 1),
+          end: DateTime(2026, 10, 31),
+        );
+        fail = true;
+        expect(await controller.configure(settings), isFalse);
+        expect(container.read(calendarSyncControllerProvider).value, isNull);
+        expect(device.reads, 0);
+        fail = false;
+        expect(await controller.configure(settings), isTrue);
+        fail = true;
+        expect(await controller.configure(null), isFalse);
+        expect(
+          container.read(calendarSyncControllerProvider).value,
+          same(settings),
+        );
+        expect(container.read(calendarSyncResultProvider).hasError, isTrue);
+        expect(
+          (await SharedPreferences.getInstance()).getString(
+            'calendar_sync_settings',
+          ),
+          isNotNull,
+        );
+        fail = false;
+        expect(await controller.configure(null), isTrue);
+        expect(container.read(calendarSyncControllerProvider).value, isNull);
+      },
+    );
+  }
+
+  test('overlapping automatic checks use only one OS read', () async {
+    final device = _FakeCalendar();
+    final container = ProviderContainer(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(database),
+        calendarDeviceServiceProvider.overrideWithValue(device),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(calendarSyncControllerProvider.future);
+    final controller = container.read(calendarSyncControllerProvider.notifier);
+    await controller.configure(
+      CalendarSyncSettings(
+        ids: {'personal'},
+        start: DateTime(2026, 10, 1),
+        end: DateTime(2026, 10, 31),
+      ),
+    );
+    device.block = Completer<void>();
+    final first = controller.synchronize(force: true);
+    final second = controller.synchronize(force: true);
+    await Future<void>.delayed(Duration.zero);
+    expect(device.reads, 2);
+    device.block!.complete();
+    await Future.wait([first, second]);
+    expect(device.reads, 2);
+  });
 
   test(
     'reflects source additions, edits and removals without duplicate records',
@@ -179,6 +270,7 @@ void main() {
 }
 
 class _FakeCalendar extends CalendarDeviceService {
+  Completer<void>? block;
   int reads = 0;
   bool fail = false;
   CalendarAccessState access = CalendarAccessState.granted;
@@ -195,6 +287,7 @@ class _FakeCalendar extends CalendarDeviceService {
     required Set<String> calendarIds,
   }) async {
     reads++;
+    await block?.future;
     if (fail) throw StateError('OS calendar failed');
     return [_event('source', 'Source')];
   }

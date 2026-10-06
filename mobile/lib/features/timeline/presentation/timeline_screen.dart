@@ -1,3 +1,5 @@
+import 'package:my_life/shared/formatting/display_formatters.dart';
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -9,7 +11,7 @@ import 'package:my_life/features/record/domain/life_record.dart';
 import 'package:my_life/features/record/domain/local_date.dart';
 import 'package:my_life/features/timeline/application/timeline_providers.dart';
 import 'package:my_life/features/timeline/domain/timeline_entry.dart';
-import 'package:my_life/features/timeline/presentation/timeline_entry_labels.dart';
+import 'package:my_life/features/record/presentation/record_entry_labels.dart';
 
 class TimelineScreen extends ConsumerWidget {
   const TimelineScreen({super.key});
@@ -173,31 +175,33 @@ class _TimelineList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     LocalDate? previousDate;
-    final children = <Widget>[];
+    final rows = <Object>[];
     for (final entry in entries) {
       if (entry.record.eventDate != previousDate) {
         previousDate = entry.record.eventDate;
-        children.add(
-          Padding(
-            padding: EdgeInsets.fromLTRB(4, children.isEmpty ? 4 : 20, 4, 8),
-            child: Text(
-              _longDate(entry.record.eventDate),
-              key: Key(
-                'timeline-date-${entry.record.eventDate.toIso8601String()}',
-              ),
-              style: Theme.of(context).textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ),
-        );
+        rows.add(entry.record.eventDate);
       }
-      children.add(_TimelineCard(entry: entry));
+      rows.add(entry);
     }
 
-    return ListView(
+    return ListView.builder(
       key: const Key('timeline-list'),
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-      children: children,
+      itemCount: rows.length,
+      itemBuilder: (context, index) {
+        final row = rows[index];
+        if (row is TimelineEntry) return _TimelineCard(entry: row);
+        final date = row as LocalDate;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(4, index == 0 ? 4 : 20, 4, 8),
+          child: Text(
+            _longDate(date),
+            key: Key('timeline-date-${date.toIso8601String()}'),
+            style: Theme.of(context).textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+        );
+      },
     );
   }
 }
@@ -215,10 +219,10 @@ class _TimelineCard extends ConsumerWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(
         color: Theme.of(context).colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: InkWell(
           key: Key('timeline-entry-${record.id}'),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           onTap: () => context.push(recordDetailPath(record)),
           child: Padding(
             padding: const EdgeInsets.all(14),
@@ -293,7 +297,7 @@ class _Leading extends ConsumerWidget {
         width: 54,
         height: 54,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           child: ref
               .watch(photoPathProvider(path))
               .when(
@@ -339,7 +343,7 @@ class _TypeIcon extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Icon(
         icon,

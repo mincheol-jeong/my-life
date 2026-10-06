@@ -3,17 +3,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_life/core/localization/app_strings.dart';
 import 'package:my_life/core/localization/locale_controller.dart';
+import 'package:my_life/features/settings/application/app_info_provider.dart';
 
-class MeScreen extends ConsumerWidget {
+class MeScreen extends ConsumerStatefulWidget {
   const MeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final locale =
-        ref.watch(localeControllerProvider).value ?? const Locale('ko');
+  ConsumerState<MeScreen> createState() => _MeScreenState();
+}
+
+class _MeScreenState extends ConsumerState<MeScreen> {
+  bool _savingLanguage = false;
+  int _languageRevision = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final localeState = ref.watch(localeControllerProvider);
+    final locale = localeState.value ?? const Locale('ko');
     final selected = locale.languageCode == 'en'
         ? AppLanguage.english
         : AppLanguage.korean;
+    final appInfo = ref.watch(appInfoProvider);
     return Scaffold(
       appBar: AppBar(title: Text(context.strings.get('me'))),
       body: ListView(
@@ -31,30 +41,52 @@ class MeScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
-          DropdownButtonFormField<AppLanguage>(
-            key: const Key('language-selector'),
-            initialValue: selected,
-            decoration: InputDecoration(
-              labelText: context.strings.get('language'),
-              border: const OutlineInputBorder(),
+          KeyedSubtree(
+            key: ValueKey(
+              'language-field-${selected.languageCode}-$_languageRevision',
             ),
-            items: [
-              DropdownMenuItem(
-                value: AppLanguage.korean,
-                child: Text(context.strings.get('korean')),
+            child: DropdownButtonFormField<AppLanguage>(
+              key: const Key('language-selector'),
+              isExpanded: true,
+              initialValue: selected,
+              decoration: InputDecoration(
+                labelText: context.strings.get('language'),
               ),
-              DropdownMenuItem(
-                value: AppLanguage.english,
-                child: Text(context.strings.get('english')),
-              ),
-            ],
-            onChanged: (language) {
-              if (language != null) {
-                ref
-                    .read(localeControllerProvider.notifier)
-                    .setLanguage(language);
-              }
-            },
+              items: [
+                DropdownMenuItem(
+                  value: AppLanguage.korean,
+                  child: Text(context.strings.get('korean')),
+                ),
+                DropdownMenuItem(
+                  value: AppLanguage.english,
+                  child: Text(context.strings.get('english')),
+                ),
+              ],
+              onChanged: _savingLanguage || localeState.isLoading
+                  ? null
+                  : (language) async {
+                      if (language != null) {
+                        setState(() => _savingLanguage = true);
+                        final saved = await ref
+                            .read(localeControllerProvider.notifier)
+                            .setLanguage(language);
+                        if (!mounted) return;
+                        setState(() {
+                          _savingLanguage = false;
+                          if (!saved) _languageRevision++;
+                        });
+                        if (!saved && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                context.strings.get('languageSaveError'),
+                              ),
+                            ),
+                          );
+                        }
+                      }
+                    },
+            ),
           ),
           const SizedBox(height: 28),
           Text(
@@ -79,6 +111,55 @@ class MeScreen extends ConsumerWidget {
             subtitle: Text(context.strings.get('paymentImportHint')),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => context.push('/payment-import'),
+          ),
+          const SizedBox(height: 28),
+          Text(
+            context.strings.get('localStorageTitle'),
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.strings.get('localStorageWarning'),
+            key: const Key('local-storage-warning'),
+          ),
+          const SizedBox(height: 28),
+          Text(
+            context.strings.get('appInformation'),
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 8),
+          appInfo.when(
+            data: (info) => ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(context.strings.get('appVersion')),
+              subtitle: Text(
+                info.displayVersion,
+                key: const Key('app-version'),
+              ),
+            ),
+            loading: () =>
+                const LinearProgressIndicator(key: Key('app-info-loading')),
+            error: (_, _) => ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(context.strings.get('appInfoError')),
+              trailing: IconButton(
+                key: const Key('app-info-retry'),
+                tooltip: context.strings.get('retry'),
+                onPressed: () => ref.invalidate(appInfoProvider),
+                icon: const Icon(Icons.refresh),
+              ),
+            ),
+          ),
+          ListTile(
+            key: const Key('open-source-licenses'),
+            contentPadding: EdgeInsets.zero,
+            title: Text(context.strings.get('openSourceLicenses')),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => showLicensePage(
+              context: context,
+              applicationName: 'MY LIFE',
+              applicationVersion: appInfo.value?.displayVersion,
+            ),
           ),
         ],
       ),

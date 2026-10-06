@@ -4,10 +4,10 @@ MY LIFE는 메모, 지출, 사진으로 일상을 기록하고 Timeline에서 �
 
 ## Current Status
 
-- Current phase: Phase 6 — Home complete; Phase 7 next
-- Application code: Foundation, Record + Memo, Expense, Photo, Timeline, Home implemented in `mobile/`
+- Current phase: Phase 8 — Me complete; V1 stabilization in progress
+- Application code: Foundation through Me implemented in `mobile/`
 - Supported platforms: Android, iOS
-- Current development version: 0.1.0
+- Current development version: 0.1.1+2
 - Flutter: 3.47.5 stable
 - Dart: 3.13.4
 - Flutter project location: `mobile/`
@@ -19,11 +19,18 @@ MY LIFE는 메모, 지출, 사진으로 일상을 기록하고 Timeline에서 �
 - Phase 4 Photo: Complete
 - Phase 5 Timeline: Complete
 - Phase 6 Home: Complete
+- Phase 7 Finance: Complete
+- Phase 8 Me: Complete
+- V1 Stabilization: Automated checks completed; device and signed release verification pending
 - Lightweight Calendar Import / Photo metadata suggestion: Complete
 - Device Calendar auto-reflection / Payment draft import: Implemented; actual card alerts require device verification
 - Languages: 한국어 / English
 
-현재 개발 환경에서 Android SDK 36, Android Studio JDK 25, Xcode 27.0, CocoaPods 1.17.0을 사용하여 Android debug와 iOS simulator build를 검증했습니다. 자동화 테스트는 현재 79개입니다.
+현재 개발 환경에서 Android SDK 36, Android Studio JDK 25, Xcode 27.0, CocoaPods 1.17.0을 사용합니다. 자동화 테스트 130개, 정적 검사, Android debug/iOS simulator build를 통과했습니다. 이는 실기기나 서명된 release 검증을 대신하지 않습니다.
+
+정리 작업으로 입력 화면의 공통 표시·뒤로가기와 Home/Finance 날짜 갱신을 통합했습니다. 저장 중 화면 종료, 사진 동시 삭제·지연 metadata, 캘린더 설정 저장 실패와 음수 결제 금액에 대한 회귀 테스트를 포함합니다. Timeline은 화면 항목을 lazy build하지만 DB pagination은 아직 적용하지 않았습니다.
+
+화면은 따뜻한 Light Theme을 유지하며 입력창·Timeline card·사진 thumbnail·선택창에 둥근 모서리를 사용합니다. 입력창은 공통 Theme의 배경·테두리·여백을 따르고 버튼/필터는 pill 형태입니다. 작은 화면에서는 입력 화면을 스크롤해 저장 버튼에 접근할 수 있습니다.
 
 Phase 2에서 Memo 생성·조회·수정·soft delete, 앱 재실행 후 로컬 DB 유지, schema v1→v2 migration을 테스트했습니다.
 
@@ -43,12 +50,19 @@ Me의 지출 가져오기는 Android 선택 앱 알림 또는 iOS 단축어 텍�
 
 ## V1 MVP Scope
 
+Phase 7 Finance는 선택한 월의 총 지출·카테고리별·일별 지출을 기존 Expense 데이터로 표시합니다. 이전/다음 월과 이번 달 복귀를 제공하고, 지출 저장·수정·삭제를 실시간 반영합니다. 삭제된 기록과 미확인 결제 초안은 제외하며 빈 월/조회 중/오류·재시도 상태를 한국어와 English로 제공합니다. 차트나 새 DB table/package는 추가하지 않았습니다.
+
+Phase 8 Me는 Android/iOS의 실제 version/build와 Open Source Licenses, 로컬 보관·백업 미지원 안내를 제공합니다. 언어 설정 저장 실패 시 이전 선택을 복원하고 오류를 알립니다.
+
+사진 삭제는 앱 전용 journal을 기록하며 다음 사진 접근/쓰기 시 DB 상태에 맞춰 중단된 삭제를 복구하거나 정리합니다. DB에 저장되지 않은 사진 생성 잔여물도 앱 전용 저장소에서만 정리합니다. 원본 사진 보관함과 인식할 수 없는 이전 journal은 임의로 삭제하지 않습니다.
+
 - Home
 - Timeline
 - Memo Record
 - Expense Record와 기본 Finance 집계
 - Photo Record와 로컬 파일 저장
 - Drift/SQLite 기반 로컬 저장
+- Me: 언어, 기기 가져오기 진입점, 앱 버전, 라이선스, 로컬 보관 안내
 
 Search, 독립 Calendar/Event, 양방향 동기화, 독립 Place, Travel, Backup/Restore, Backend, Cloud Sync, AI는 V1 MVP 범위가 아닙니다.
 
@@ -98,11 +112,16 @@ flutter test
 ```bash
 flutter test test/features/timeline/data/timeline_repository_test.dart
 flutter test test/features/home
+flutter test test/features/finance
+flutter test test/features/settings
+flutter test test/features/photo/data/photo_repository_test.dart
+flutter test test/stabilization
 flutter test test/widget_test.dart
 ```
 
 - Repository 테스트는 in-memory SQLite에서 CRUD, 제약조건, 정렬, 필터와 stream 갱신을 확인합니다.
 - Widget 테스트는 navigation과 Memo/Expense/Timeline/언어 선택의 핵심 사용자 흐름을 확인합니다.
+- 사진 복사 실패·DB 삭제 rollback·중단 복구와 좁은 화면/큰 글자/키보드 접근을 모사합니다. 실제 강제 종료·저장 공간 부족·스크린 리더 검증은 기기에서 별도로 수행합니다.
 - 테스트는 실제 기기의 Camera/Gallery 권한 선택기까지 자동화하지 않습니다. 해당 흐름은 아래 기기 테스트로 확인합니다.
 
 ## Run on a Simulator or Device
@@ -140,6 +159,8 @@ flutter run -d <android-device-id>
 2. Timeline에서 날짜별 최신순과 같은 날짜의 시간 내림차순을 확인합니다.
 3. 전체/메모/지출/사진 필터와 기간 필터를 각각 적용하고 해제합니다.
 4. 각 Timeline card를 눌러 올바른 상세 화면으로 이동하는지 확인합니다.
+   저장 직후 상세 화면의 왼쪽 화살표는 Home으로, Home/Timeline에서 연 상세 화면의 화살표는 이전 화면으로 돌아가야 합니다.
+   지출 상세의 별도 집 모양 버튼은 어디서 진입했든 Home으로 이동해야 합니다.
 5. 기록을 수정한 직후 Timeline에 변경 내용이 반영되는지 확인합니다.
 6. 기록을 삭제한 뒤 Timeline에서 사라지는지 확인합니다.
 7. 앱을 완전히 종료하고 다시 실행해 Record와 앱 관리 사진이 유지되는지 확인합니다.
@@ -151,6 +172,11 @@ flutter run -d <android-device-id>
 13. Home에서 이번 달 지출 합계와 최근 기록·사진을 확인하고 각각 상세 화면으로 이동합니다.
 14. 지출 금액/날짜 수정과 삭제가 Home 합계에 반영되고, 사진 삭제 후 대표 썸네일이 갱신되는지 확인합니다.
 15. 자정 또는 월 경계 이후 앱을 다시 열어 Home의 오늘 날짜와 지출 집계 월이 갱신되는지 확인합니다.
+16. Finance에서 이전/다음 월과 이번 달 복귀를 확인합니다. 월 총액과 카테고리별/일별 합계가 일치하는지 확인합니다.
+17. 지출의 금액·카테고리·날짜를 수정하거나 삭제한 뒤 Home·Timeline·Finance에 동일하게 반영되는지 확인합니다. 미확인 결제 초안은 합계에서 제외되어야 합니다.
+18. 지출이 없는 월, 한국어/English 월 표시, 시스템 글자 크기를 키운 화면을 확인합니다.
+19. Me에서 실제 version/build, 라이선스 목록/본문, 로컬 보관 경고를 확인합니다.
+20. 회사 실기기/업데이트/권한/카드별 검증 결과를 [배포 체크리스트](docs/release.md)에 기록합니다. 앱 삭제 없이 업데이트하여 기존 기록 보존을 확인합니다.
 
 ## Build Verification
 
@@ -163,6 +189,15 @@ flutter build ios --simulator
 ```
 
 Android 결과는 `mobile/build/app/outputs/flutter-apk/app-debug.apk`에 생성됩니다. iOS simulator build는 macOS와 Xcode가 필요하며 실제 기기/스토어 배포용 archive를 만들지는 않습니다.
+
+Android release는 debug key로 서명하지 않습니다. 로컬 `android/key.properties`가 없거나 필수 값이 비어 있으면 명시적으로 실패합니다. 실제 인증서/비밀번호는 Git에 넣지 않습니다. [Android/iOS signing과 남은 출시 준비](docs/release.md)를 확인하세요.
+
+## Post-V1 Planning
+
+- [회원 정보 관리 계획](docs/accounts.md): 선택적 계정, 최소 프로필, 로컬 데이터 소유권, 동의/탈퇴/삭제.
+- [수익화 설계와 실행 계획](docs/monetization.md): 무료 로컬 기능, 일회성 Pro/Cloud 구독 후보, 원가·손익과 검증 단계.
+
+두 문서는 제안이며 가격/인증 제공자/상품은 미확정입니다. 로그인, 서버, 결제, 광고 SDK와 Backup/Restore는 아직 구현하지 않았습니다. V1 안정화 후 데이터 이동/Backup, 회원 관리, 필요한 Cloud/유료 상품을 별도 승인 순서로 진행합니다.
 
 ## Device Connections
 
@@ -197,6 +232,8 @@ Android 결과는 `mobile/build/app/outputs/flutter-apk/app-debug.apk`에 생성
 OS 캘린더의 로컬 저장소만 읽습니다. Google/iCloud 등 계정의 원격 동기화는 OS 캘린더가 담당합니다. 실시간 background 동기화나 MY LIFE → 캘린더 쓰기는 제공하지 않습니다.
 
 ## Documentation
+
+사용자 승인으로 커밋할 때마다 기본 PATCH와 Flutter build number를 올리고 `mobile/pubspec.yaml`, VERSION, README를 맞춥니다. MINOR/MAJOR 변경은 별도 지시에 따릅니다. 정식 배포 전에는 의미 있는 변경을 CHANGELOG의 `Unreleased`에 기록합니다.
 
 - [Development Guide](AGENTS.md)
 - [Requirements](docs/requirements.md)
